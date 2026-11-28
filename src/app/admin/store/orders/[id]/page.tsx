@@ -10,6 +10,7 @@ import { FULFILMENT_LABEL, TRACKING_STEPS, isFulfilmentStatus, nextStatuses, tra
 import { Money, Notice, StoreShell, STATE_TONE, fa, faDate, faDay, send, useJson } from '../../shared'
 import ShipmentPanel from './ShipmentPanel'
 import OrderAssignment, { type Assignment } from './OrderAssignment'
+import ExpertOrderTicket from '@/components/support/ExpertOrderTicket'
 import LineInputs, { type InputLine } from './LineInputs'
 import WarrantyPanel from './WarrantyPanel'
 import DeliveryDetailsEditor, { EMPTY_DELIVERY, draftFromTemplate, type DeliveryDraft } from '@/components/admin/store/DeliveryDetailsEditor'
@@ -26,6 +27,7 @@ type Detail = Assignment & {
   shippingMethod: { carrierId: string; carrierName: string; eta: string; weightGrams: number; collect?: boolean } | null
   invoiceNumber: string; invoiceStatus: string; orderStatus: string; gateway: string; hasDigitalDelivery: boolean; deliveryTemplate: ProductDeliveryTemplate | null
   saleSource: string
+  ownsExpertWork: boolean
   customer: { id: number | null; name: string; email: string; phone: string; createdAt: string; paidOrders: number; spent: number }
   payments: { id: number; provider: string; status: string; amount: number; createdAt: string }[]
   events: { id: number; status: string; note: string; createdAt: string; visible: boolean; actor: string }[]
@@ -101,6 +103,7 @@ export default function StoreOrderPage() {
         {!virtual && data.manager && <DeliveryChangePanel orderId={data.id} />}
         {data.manager && !virtual && data.orderStatus === 'PAID' && <WarrantyPanel orderId={data.id} />}
         {data.orderStatus === 'PAID' && <OrderAssignment id={data.id} work={data} onChanged={() => void reload()} />}
+        {data.orderStatus === 'PAID' && data.ownsExpertWork && virtual && <ExpertOrderTicket key={data.id} endpoint={`/api/admin/store/orders/${data.id}/expert-ticket`} writable={['PENDING', 'PROCESSING'].includes(data.fulfilment)} />}
         <section className="sa-card">
           <header className="sa-card-head"><h2>کالاها</h2><small className="num">{fa(data.lines.reduce((sum, line) => sum + line.quantity, 0))} عدد</small></header>
           <ul className="sa-lines">{data.lines.map((line, index) => <li key={index}>

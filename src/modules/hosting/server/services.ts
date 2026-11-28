@@ -8,7 +8,7 @@ import { createInboxEvent } from '@/modules/notifications/server/inbox'
 import { decryptPanelCredential, encryptPanelCredential } from '@/modules/providers/server/panel-credentials'
 import { HostingError, cycleMeta, kindMeta } from '@/modules/hosting/domain/catalog'
 import {
-  SERVICE_STATUS, STAFF_TRANSITIONS, normalizeHostname, normalizeIpv4, normalizeIpv6, normalizePanelUrl, normalizeServiceName, termEnd,
+  SERVICE_STATUS, STAFF_TRANSITIONS, hostingRenewalHorizon, normalizeHostname, normalizeIpv4, normalizeIpv6, normalizePanelUrl, normalizeServiceName, termEnd,
   type ServiceStatus,
 } from '@/modules/hosting/domain/services'
 import { canProvision } from '@/modules/hosting/server/drivers/contract'
@@ -225,24 +225,67 @@ export async function changeServiceStatus(serviceId: number, op: keyof typeof ST
   return { id: service.id, status: rule.to }
 }
 
-export async function adminHostingServices(filter: { status?: string; q?: string; page?: number }) {
+async function currentRenewalReminderTimes(rows: { id: number; userId: number; nextDueAt: Date | null }[]) {
+  const reminders = new Map<number, string>()
+  const terms = new Map(rows.flatMap(({ id, userId, nextDueAt }) =>
+    nextDueAt ? [[id, { userId, dueAt: nextDueAt.toISOString() }] as const] : [],
+  ))
+  if (!terms.size) return reminders
+
+  // Read the actual inbox records, even if the configured reminder days changed.
+  const notifications = await db.userNotification.findMany({
+    where: {
+      kind: 'HOSTING',
+      OR: Array.from(terms, ([id, { userId, dueAt }]) => ({
+        userId,
+        dedupeKey: { startsWith: `hosting:${id}:due:`, endsWith: `:${dueAt}` },
+      })),
+    },
+    select: { dedupeKey: true, createdAt: true },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+  })
+  for (const notification of notifications) {
+    const match = /^hosting:(\d+):due:[1-9]\d*:(.+)$/.exec(notification.dedupeKey)
+    if (!match) continue
+    const serviceId = Number(match[1])
+    if (terms.get(serviceId)?.dueAt === match[2] && !reminders.has(serviceId)) {
+      reminders.set(serviceId, notification.createdAt.toISOString())
+    }
+  }
+  return reminders
+}
+
+export async function adminHostingServices(filter: { status?: string; q?: string; page?: number }, now = new Date()) {
   const page = Math.max(1, Math.trunc(Number(filter.page) || 1)), take = 30
   const q = String(filter.q || '').trim().slice(0, 80)
+  const renewalQueue = filter.status === 'RENEWALS'
   const where = {
     ...(filter.status && filter.status in SERVICE_STATUS ? { status: filter.status } : {}),
+    ...(renewalQueue ? {
+      status: { in: ['ACTIVE', 'SUSPENDED'] },
+      cycle: { not: 'HOURLY' },
+      nextDueAt: { lte: hostingRenewalHorizon(now) },
+    } : {}),
     // Paid add-ons that staff still have to apply on the server.
     ...(filter.status === 'TASKS' ? { actions: { some: { status: 'WAITING', kind: { in: ['TRAFFIC', 'UPGRADE'] } } } } : {}),
     ...(q ? { OR: [{ label: { contains: q, mode: 'insensitive' as const } }, { hostname: { contains: q, mode: 'insensitive' as const } }, { ipv4: { contains: q } }, { user: { email: { contains: q, mode: 'insensitive' as const } } }, ...(/^\d+$/.test(q) ? [{ id: Number(q) }] : [])] } : {}),
   }
   const [rows, total, waiting, tasks] = await Promise.all([
-    db.hostingService.findMany({ where, orderBy: { id: 'desc' }, skip: (page - 1) * take, take, include: { user: { select: { id: true, email: true, name: true } }, product: { select: { kind: true, fulfillment: true, allowTraffic: true, allowUpgrade: true } }, provider: { select: { name: true } }, actions: { orderBy: { id: 'desc' }, take: 12 } } }),
+    db.hostingService.findMany({ where, orderBy: renewalQueue ? [{ nextDueAt: 'asc' }, { id: 'asc' }] : { id: 'desc' }, skip: (page - 1) * take, take, include: { user: { select: { id: true, email: true, name: true } }, product: { select: { kind: true, fulfillment: true, allowTraffic: true, allowUpgrade: true } }, provider: { select: { name: true } }, actions: { orderBy: { id: 'desc' }, take: 12 } } }),
     db.hostingService.count({ where }),
     db.hostingService.count({ where: { status: { in: ['PENDING', 'FAILED'] } } }),
     db.hostingAction.count({ where: { status: 'WAITING', kind: { in: ['TRAFFIC', 'UPGRADE'] } } }),
   ])
+  const reminders = renewalQueue ? await currentRenewalReminderTimes(rows) : null
   return {
-    page, pages: Math.max(1, Math.ceil(total / take)), total, waiting, tasks,
-    services: rows.map(({ loginSecret, priceMinor, stoppedHourlyMinor, ...row }) => ({ ...row, priceMinor: priceMinor.toString(), stoppedHourlyMinor: stoppedHourlyMinor.toString(), hasPassword: Boolean(loginSecret) })),
+    page, pages: Math.max(1, Math.ceil(total / take)), total, waiting, tasks, renewalQueue,
+    services: rows.map(({ loginSecret, priceMinor, stoppedHourlyMinor, ...row }) => ({
+      ...row,
+      priceMinor: priceMinor.toString(),
+      stoppedHourlyMinor: stoppedHourlyMinor.toString(),
+      hasPassword: Boolean(loginSecret),
+      renewalReminderAt: reminders?.get(row.id) ?? null,
+    })),
   }
 }
 

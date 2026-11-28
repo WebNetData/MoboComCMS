@@ -1,0 +1,12 @@
+.panel { display: grid; gap: 12px; margin-block: 12px; }
+.panel header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px 16px; flex-wrap: wrap; }
+.panel h3, .panel p { margin: 0; }
+.panel h3 { font-size: 1rem; }
+.panel small, .hint { color: var(--muted); line-height: 1.7; }
+.thread { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; max-block-size: 18rem; overflow: auto; }
+.thread li { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-soft); overflow-wrap: anywhere; }
+.composer { display: grid; gap: 10px; }
+.composer label { display: grid; gap: 6px; }
+.composer :is(select,textarea) { inline-size: 100%; min-block-size: 44px; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.actions button { min-block-size: 44px; }

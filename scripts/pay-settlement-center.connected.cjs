@@ -47,11 +47,13 @@ const assert=require('node:assert/strict'),{randomUUID}=require('node:crypto')
  assert.deepEqual(Object.fromEntries(report.settlements.map(row=>[row.status,[row.count,row.sourceAmount]])),{
   APPROVED:[2,'2000000'],PAID:[1,'1000000'],REJECTED:[1,'1000000'],REQUESTED:[1,'1000000'],
  })
+ assert.deepEqual(report.closing.find(row=>row.currency==='IRR'),{currency:'IRR',credited:'100000000',paid:'1000000',difference:'99000000'})
  const otherMerchant = await db.payMerchant.create({ data: { id: randomUUID(), userId: other.id, name: 'Another merchant', website: 'https://other.invalid', status: 'ACTIVE' } })
  try {
   const isolated = await pay.payFinancialReport(other,'merchant',new URLSearchParams())
   assert.deepEqual(isolated.settlements,[])
   assert.equal(isolated.totals.paidCount,0)
+  assert.equal(isolated.closing.find(row=>row.currency==='IRR').paid,'0')
  } finally { await db.payMerchant.delete({ where: { id: otherMerchant.id } }) }
  console.log('Settlement center PASS: schedule reservation/replay/reject, immutable profiles/policies, concurrent independent dual approval and SQL denial, legacy single approval, bounded batch outcomes and private paid receipt')
  }finally{await h.cleanup()}})().catch(e=>{console.error(e.stack);process.exitCode=1})

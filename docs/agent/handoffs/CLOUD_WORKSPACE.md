@@ -245,3 +245,14 @@ mobile/tablet native drawer, stored choices and existing ownership remain.
 Public Cloud landing is untouched. PG cloud-workspace, canonical check, actual
 themed/wide/mobile/tablet browser/axe and owned fixture cleanup passed.
 [Exact shared repair evidence](MOBOCOM_PAY.md#paycloud-layout-and-first-terminal-repair--2026-11-26).
+## Renewal follow-up — 2026-11-28
+
+The customer dashboard shows fixed-term services due within 30 days and
+overdue services. The dashboard and service detail use the current-term,
+owner-matched renewal invoice when available. The Admin service filter shows
+due dates and the latest reminder recorded in the account inbox for the
+current term. The existing renewal lifecycle remains the source of truth.
+
+The `cloud-workspace` and `hosting-renewal` PostgreSQL checks cover matching
+and ownership. Edge covered dashboard, detail, invoice navigation and the
+Admin filter at 1440 px light and 390 px dark with scoped axe.

@@ -34,6 +34,7 @@ export async function GET(req: NextRequest, { params: paramsPromise }: { params:
     departmentName: departmentConfig ? { fa: departmentConfig.nameFa, en: departmentConfig.nameEn } : { fa: ticket.department, en: ticket.department },
     departmentFields: parseFields(departmentConfig?.fields || '[]'),
     productId: ticket.productId,
+    expertRequest: ticket.expertRequestKey?.startsWith('form:') ? 'form' : ticket.expertRequestKey?.startsWith('store:') ? 'store' : null,
     serviceContext: readTicketService(ticket.serviceContext),
     order: ticket.order ? { id: ticket.order.id, status: ticket.order.status, createdAt: ticket.order.createdAt, currency: ticket.order.currency, totalAmount: ticket.order.totalAmount, lines: ticket.order.lines.map(line => ({ line: line.line, name: line.name, variantName: line.variantName, quantity: line.quantity })) } : null,
     customFields: JSON.parse(ticket.customFields || '{}'),
@@ -74,7 +75,7 @@ export async function POST(req: NextRequest, { params: paramsPromise }: { params
   if (!user) return err('unauthorized', 401)
   const id = Number(params.id)
   if (!Number.isSafeInteger(id) || id <= 0) return err('invalid ticket id', 400)
-  const ticket = await db.ticket.findUnique({ where: { id }, select: { ...ticketWorkflowSelect, userId: true } })
+  const ticket = await db.ticket.findUnique({ where: { id }, select: { ...ticketWorkflowSelect, userId: true, expertRequestKey: true } })
   if (!ticket) return err('not found', 404)
   let body: any, files: Awaited<ReturnType<typeof parseTicketSubmission>>['files']
   try { ({ body, files } = await parseTicketSubmission(req)) }
@@ -86,7 +87,11 @@ export async function POST(req: NextRequest, { params: paramsPromise }: { params
     if (body?.internal !== true && heldByAnother(agent, ticket.assignedToId)) return err(HELD_BY_ANOTHER, 403)
   } else if (ticket.userId !== user.id) return err('forbidden', 403)
   const message = sanitizeMessage(String(body?.message || '').trim())
-  if (!richTextToPlain(message)) return err('Message is required / متن پیام الزامی است')
+  const plain = richTextToPlain(message)
+  if (!plain) return err('Message is required / متن پیام الزامی است')
+  if (!staffReply && ticket.expertRequestKey && (files.length || /^[\p{Nd}\s-]{4,16}$/u.test(plain))) {
+    return err('فقط نتیجهٔ اقدام یا توضیح سفارش را به‌صورت متنی بفرستید. کد ورود و پیوست پذیرفته نمی‌شود.', 422)
+  }
   if (message.length > 12000) return err('Message is too long / متن پیام طولانی است')
 
   const internal = body?.internal === true

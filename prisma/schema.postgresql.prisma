@@ -671,6 +671,8 @@ model ResellerBotUpdate {
 }
 
 model Ticket {
+  /// Idempotent staff-created conversation linked to an expert work item.
+  expertRequestKey String? @unique
   storeWarrantyDeviceId Int?
   storeWarrantyDevice StoreWarrantyDevice? @relation(fields: [storeWarrantyDeviceId], references: [id], onDelete: Restrict)
 

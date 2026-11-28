@@ -41,4 +41,14 @@
 .table tbody tr:nth-child(even) { background: var(--pay-wash); }
 .table tbody tr:hover { background: color-mix(in srgb, var(--pay-accent) 7%, var(--pay-surface)); }
 .table:focus-visible { outline: 2px solid var(--pay-accent); outline-offset: 3px; }
+.closingTable table { table-layout: fixed; }
+.closingTable :is(th, td) { white-space: normal; overflow-wrap: anywhere; }
+.closingTable thead th:first-child { width: 17%; }
+.closingTable tbody td:last-child { background: color-mix(in srgb, var(--pay-accent) 9%, var(--pay-surface)); }
+@media (min-width: 971px) {
+  .terminalFilter { grid-template-columns: repeat(3, minmax(0, 1fr)) auto; }
+}
+@media (max-width: 600px) {
+  .closingTable :is(th, td) { padding: 9px 6px; font-size: .8125rem; }
+}
 .empty { padding: 12px; border: 1px dashed var(--pay-border); border-radius: 10px; color: var(--pay-muted); }

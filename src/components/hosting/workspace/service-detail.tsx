@@ -8,6 +8,8 @@ import Link from '@/components/AppLink'
 import Icon from '@/components/site/Icon'
 import { cycleMeta, kindMeta } from '@/modules/hosting/domain/catalog'
 import { SERVICE_STATUS, type ServiceStatus } from '@/modules/hosting/domain/services'
+import type { RenewalInvoice } from '@/modules/hosting/domain/workspace'
+import { formatMoney } from '@/shared/money'
 import { startCheckout } from '@/modules/checkout/ui/client'
 import { day, daysLeft, fa, kindIcon, moment } from '@/app/dashboard/services/shared'
 import HourlyPanel, { type HourlyUsage } from '@/app/dashboard/services/[id]/HourlyPanel'
@@ -17,8 +19,9 @@ import '@/app/dashboard/services/services.css'
 
 type Service = {
   powerEnabled:boolean;powerState:string;operations:CloudOperationView[]
-  id: number; label: string; status: string; cycle: string; hostname: string; ipv4: string; ipv6: string; panelUrl: string; loginUser: string; hasPassword: boolean; autoRenew: boolean; priceMinor: string
+  id: number; label: string; status: string; cycle: string; hostname: string; ipv4: string; ipv6: string; panelUrl: string; loginUser: string; hasPassword: boolean; autoRenew: boolean; priceMinor: string; currency: string
   note: string; startedAt: string | null; nextDueAt: string | null; suspendedAt: string | null; createdAt: string; allowTraffic: boolean; allowUpgrade: boolean
+  renewalInvoice?: RenewalInvoice | null
   product: { kind: string; name: string; cpuCores: number; ramMb: number; diskGb: number; diskType: string; trafficGb: number; bandwidthMbps: number; sites: number; mailboxes: number; databases: number; location: string; fulfillment: string }
   actions: { id: number; kind: string; status: string; actor: string; detail: string; createdAt: string }[]
 }
@@ -103,6 +106,7 @@ export default function ServiceWorkspace({ params, surface = 'dashboard' }: { pa
   const spent = left === null ? 0 : Math.min(100, Math.max(0, Math.round(100 - (left / (months * 30.4)) * 100)))
   const waiting = ['PENDING', 'PROVISIONING', 'FAILED'].includes(service.status)
   const usable = service.status === 'ACTIVE' || service.status === 'SUSPENDED'
+  const renewalInvoice = service.renewalInvoice
   const specs = (server
     ? [['cpu', 'پردازنده', service.product.cpuCores ? `${fa(service.product.cpuCores)} هسته` : ''], ['layers', 'رم', service.product.ramMb ? (service.product.ramMb >= 1024 ? `${fa(service.product.ramMb / 1024)} گیگابایت` : `${fa(service.product.ramMb)} مگابایت`) : ''], ['database', 'دیسک', service.product.diskGb ? `${fa(service.product.diskGb)} گیگابایت ${service.product.diskType}` : ''], ['activity', 'ترافیک ماهانه', service.product.trafficGb ? `${fa(service.product.trafficGb + (addons?.extraTrafficGb || 0))} گیگابایت${addons?.extraTrafficGb ? ` (${fa(addons.extraTrafficGb)} اضافه)` : ''}` : 'نامحدود'], ['bolt', 'پورت', service.product.bandwidthMbps ? `${fa(service.product.bandwidthMbps)} Mbps` : '']]
     : [['database', 'فضا', service.product.diskGb ? `${fa(service.product.diskGb)} گیگابایت ${service.product.diskType}` : ''], ['activity', 'ترافیک ماهانه', service.product.trafficGb ? `${fa(service.product.trafficGb + (addons?.extraTrafficGb || 0))} گیگابایت${addons?.extraTrafficGb ? ` (${fa(addons.extraTrafficGb)} اضافه)` : ''}` : 'نامحدود'], ['globe', 'سایت', service.product.sites ? fa(service.product.sites) : 'نامحدود'], ['mail', 'ایمیل', service.product.mailboxes ? fa(service.product.mailboxes) : ''], ['layers', 'پایگاه داده', service.product.databases ? fa(service.product.databases) : '']]
@@ -160,9 +164,16 @@ export default function ServiceWorkspace({ params, surface = 'dashboard' }: { pa
 
       {usable && service.cycle !== 'HOURLY' && <section className="hs-panel hs-renew" aria-labelledby="hs-renew">
         <h2 id="hs-renew"><Icon name="clock" size={18} />تمدید</h2>
-        <div className="hs-renew-price"><span>هر {cycleMeta(service.cycle)?.short}</span><b className="num">{Number(service.priceMinor).toLocaleString('fa-IR')} تومان</b></div>
-        <p className="hs-renew-due">{service.nextDueAt ? `سررسید بعدی: ${day.format(new Date(service.nextDueAt))}` : ''}{service.status === 'SUSPENDED' ? ' · با تمدید دوباره فعال می‌شود' : ''}</p>
-        <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void renew()}>{service.status === 'SUSPENDED' ? 'تمدید و فعال‌سازی' : `تمدید یک دورهٔ ${cycleMeta(service.cycle)?.label || ''}`}</button>
+        <div className="hs-renew-price"><span>هر {cycleMeta(service.cycle)?.short}</span><b className="num">{formatMoney(service.priceMinor, service.currency, 'fa-IR')}</b></div>
+        {service.nextDueAt && <p className="hs-renew-due">سررسید فعلی <time dateTime={service.nextDueAt}>{day.format(new Date(service.nextDueAt))}</time></p>}
+        {renewalInvoice ? <>
+          <p className="hs-renew-due">
+            {renewalInvoice.status === 'PAID' ? 'فاکتور پرداخت شده و تمدید هنوز اعمال نشده است.' : 'برای این دوره یک فاکتور در انتظار پرداخت دارید.'} <bdi>{renewalInvoice.number}</bdi>
+          </p>
+          <Link className="btn btn-primary" href={checkoutPath('/invoice/' + encodeURIComponent(renewalInvoice.number), surface)}>
+            {renewalInvoice.status === 'PAID' ? 'مشاهدهٔ فاکتور تمدید' : 'مشاهده و پرداخت فاکتور تمدید'}
+          </Link>
+        </> : <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void renew()}>{`تمدید یک دورهٔ ${cycleMeta(service.cycle)?.label || ''}`}</button>}
         <label className="hs-switch">
           <input type="checkbox" role="switch" checked={service.autoRenew} disabled={busy} onChange={(event) => void toggleAutoRenew(event.target.checked)} />
           <span className="hs-switch-track" aria-hidden="true" />

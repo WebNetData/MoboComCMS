@@ -18,6 +18,8 @@ import CopyText from '@/components/software/CopyText'
 import DeliveredDetails from '@/components/store/DeliveredDetails'
 import { buyerDelivery, type BuyerDelivery } from '@/modules/store/server/staff-delivery'
 import { buyerDeliveryFiles } from '@/modules/store/server/delivery-files'
+import { db } from '@/platform/database/prisma'
+import { findExpertOrderTicketIds } from '@/modules/support/server/expert-order-ticket'
 
 const fa = (value: number) => value.toLocaleString('fa-IR')
 /** «۳ ساعت پیش» from a moment, at the largest unit that is at least one. */
@@ -128,7 +130,12 @@ export async function MyOrderView({ id: idParam, base = '/dashboard/orders' }: {
   const shipment = await orderShipment(order.id).catch(() => null)
   // Codes delivered by the product's own pool are the buyer's as soon as the order is paid; a specialist's hand
   // delivery shows its progress while open and its details once delivered.
-  const [codes, handoff, handedFiles] = await Promise.all([buyerCodes(user, order.id).catch(() => []), buyerDelivery(user, order.id).catch(() => null), buyerDeliveryFiles(user, order.id).catch(() => [])])
+  const expertKey = `store:${order.id}` as const
+  const [codes, handoff, handedFiles, expertTickets] = await Promise.all([
+    buyerCodes(user, order.id).catch(() => []), buyerDelivery(user, order.id).catch(() => null), buyerDeliveryFiles(user, order.id).catch(() => []),
+    findExpertOrderTicketIds(db, user, [expertKey]),
+  ])
+  const ticketId = expertTickets.get(expertKey)
   // Older deliveries of code orders repeat the codes as text: the codes card above already shows them.
   const delivered = handoff?.details && (handoff.details.structured || !codes.length) && (handoff.details.items.length || handoff.details.note) ? handoff.details : handedFiles.length ? { items: [], note: '' } : null
   const fileProducts = await orderFileProducts(user, order.id)
@@ -154,6 +161,7 @@ export async function MyOrderView({ id: idParam, base = '/dashboard/orders' }: {
       <span className="sx-track-dot">{index < step ? <StoreIcon name="check" size={14} /> : fa(index + 1)}</span><b>{item.label}</b>
     </li>)}</ol>}
     {handoff && !closed && handoff.status !== 'DELIVERED' && !codes.length && <HandoffCard delivery={handoff} />}
+    {ticketId && <section className="sx-my-card" aria-label="گفت‌وگوی سفارش"><h2>گفت‌وگو با کارشناس سفارش</h2><Link className="sx-btn" href={`/dashboard/tickets/${ticketId}`}>مشاهدهٔ تیکت سفارش</Link></section>}
     {delivered && <section className="sx-my-card sx-delivered" aria-label="اطلاعات تحویل">
       <h2><StoreIcon name="shield" size={17} />اطلاعات تحویل{handoff?.deliveredAt && <small>تحویل {persian(handoff.deliveredAt, true)}</small>}</h2>
       {handoff?.note && <p className="sx-dlv-hint">{handoff.note}</p>}

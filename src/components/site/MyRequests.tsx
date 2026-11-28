@@ -12,6 +12,7 @@ import type { CustomerRepairWorkView } from '@/modules/forms/domain/repair-work'
 
 type Request = {
   id: number; form: string; slug: string; createdAt: string; answers: { label: string; type: string; value: Answer }[]
+  expertTicketId: number | null
   amount: number; currency: string; lines: { id: string; label: string; detail: string; amount: number }[]; payStatus: string; paidAt: string | null; stage: string; stageLabel?: string; receiptToken?: string; reply: string; repair: CustomerRepairWorkView | null
 }
 const fa = (n: number) => Math.round(n).toLocaleString('fa-IR')
@@ -93,7 +94,8 @@ export default function MyRequests() {
               {row.stage && <span className={`rq-badge ${TONE[row.stage] || ''}`}>{row.stageLabel || STAGE_LABEL[row.stage as Stage]}</span>}
             </div>
           </div>
-          {(row.slug || row.receiptToken || row.repair) && <div className="rq-actions">
+          {(row.slug || row.receiptToken || row.repair || row.expertTicketId) && <div className="rq-actions">
+            {row.expertTicketId && <Link href={`/dashboard/tickets/${row.expertTicketId}`} className="rq-action">مشاهدهٔ تیکت سفارش</Link>}
             {row.slug && <Link href={row.amount > 0 ? `/dashboard/order/forms/${encodeURIComponent(row.slug)}` : `/forms/${row.slug}`} className="rq-action">ثبت دوباره</Link>}
             {row.receiptToken && <a className="rq-action" href={`/receipt/${row.receiptToken}`} target="_blank" rel="noopener noreferrer">رسید دستگاه</a>}
             {row.repair && <Link href="/repair-status" className="rq-action">پیگیری و تأیید هزینه</Link>}

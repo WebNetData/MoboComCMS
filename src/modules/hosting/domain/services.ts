@@ -110,6 +110,8 @@ export function lifecycleSettings(raw: Record<string, unknown>): LifecycleSettin
 }
 
 export type LifecycleStep = { kind: 'remind'; days: number } | { kind: 'renew' } | { kind: 'suspend' } | { kind: 'warn-terminate'; days: number } | { kind: 'terminate' } | null
+export const HOSTING_RENEWAL_HORIZON_DAYS = 30
+export const hostingRenewalHorizon = (now: Date) => new Date(now.getTime() + HOSTING_RENEWAL_HORIZON_DAYS * DAY)
 
 /**
  * What the scheduled run does to one fixed-term service now. Reminders go out on the listed days before the due

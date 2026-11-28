@@ -90,8 +90,8 @@ export async function PATCH(req: NextRequest) {
 }
 
 /**
- * POST /api/admin/tickets — a member of staff opens a ticket to a customer (to ask for a one-time code,
- * a missing detail of an order, anything). The customer sees it among their own tickets, already answered
+ * POST /api/admin/tickets — a member of staff opens a ticket to ask a customer for a missing detail
+ * or to complete an action. The customer sees it among their own tickets, already answered
  * by support and waiting for them, and is told in their inbox.
  */
 export async function POST(req: NextRequest) {

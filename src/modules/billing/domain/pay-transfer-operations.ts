@@ -13,7 +13,7 @@ export function transferDifference(actual: bigint, expected: bigint | null): Tra
   return expected === null ? 'UNASSIGNED' : actual === expected ? 'EXACT' : actual < expected ? 'UNDER' : 'OVER'
 }
 export type TransferReviewDetail = {
-  notice: { id: string; source: string; amountRial: string; receivedAt: string; sourceSentAt: string; timeBasis?: 'SERVER_RECEIPT' | 'PHONE_RECEIPT' | 'SOURCE_MESSAGE' } | null
+  notice: { id: string; source: string; amountRial: string; receivedAt: string; sourceSentAt: string; timeBasis?: 'SERVER_RECEIPT' | 'PHONE_RECEIPT' | 'SOURCE_MESSAGE'; candidate?: boolean } | null
   version: number
   status: TransferReviewState
   difference: TransferDifference
@@ -29,5 +29,7 @@ export type TransferReviewQueue = {
   page: number; pages: number; total: number
   receiptsPage: number; receiptsPages: number; receiptsTotal: number
   items: { id: string; source: string; amountRial: string; receivedAt: string; invoiceNumber: string | null; status: TransferReviewState; reason: string }[]
-  receipts: { id: string; invoiceNumber: string; status: string; reason: string; receiptId: number | null; createdAt: string }[]
+  receipts: { id: string; invoiceNumber: string; status: string; reason: string; receiptId: number | null; createdAt: string; totalRial: string; stage: TransferQueueStage }[]
 }
+
+export type TransferQueueStage = 'WAITING_RECEIPT' | 'WAITING_SMS' | 'REVIEW'

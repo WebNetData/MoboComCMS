@@ -5,7 +5,7 @@ import Link from '@/components/AppLink'
 import Icon from '@/components/site/Icon'
 import { isServer, useCloudData, type CloudService } from '@/app/dashboard/cloud/CloudServices'
 import { day, daysLeft, fa } from '@/app/dashboard/services/shared'
-import { SERVICE_STATUS, type ServiceStatus } from '@/modules/hosting/domain/services'
+import { HOSTING_RENEWAL_HORIZON_DAYS, SERVICE_STATUS, type ServiceStatus } from '@/modules/hosting/domain/services'
 import { DOMAIN_STATUS, type DomainStatus } from '@/modules/hosting/domain/domains'
 import { kindMeta } from '@/modules/hosting/domain/catalog'
 import type { CloudWorkspaceOverview } from '@/modules/hosting/domain/workspace'
@@ -50,7 +50,7 @@ function Empty({ icon, children }: { icon: string; children: string }) {
 async function overviewPayload(response: Response): Promise<CloudWorkspaceOverview> {
   if (!response.ok) throw new Error('Overview unavailable')
   const data: CloudWorkspaceOverview = await response.json()
-  if (!Array.isArray(data.recentInvoices) || !Array.isArray(data.activity)) throw new Error('Invalid overview')
+  if (!Array.isArray(data.recentInvoices) || !Array.isArray(data.activity) || !Array.isArray(data.renewals)) throw new Error('Invalid overview')
   return data
 }
 
@@ -138,6 +138,44 @@ function Attention({ loading, items }: { loading: boolean; items: AttentionItem[
   </section>
 }
 
+function Renewals({ overview, failed, retry }: ReturnType<typeof useOverview>) {
+  return <section className={s.panel} aria-labelledby="cloud-renewals">
+    <div className={s.panelHead}>
+      <h2 id="cloud-renewals"><Icon name="clock" size={19} />سررسید و تمدید سرویس‌ها</h2>
+      <Link href={base + '/services'}>همهٔ سرویس‌ها<Icon name="arrow" size={15} /></Link>
+    </div>
+    {failed ? <div className={s.error} role="alert">سررسیدهای تمدید دریافت نشد.<button type="button" onClick={retry}>تلاش دوباره</button></div>
+      : !overview ? <p className={s.empty} role="status">در حال دریافت سررسیدها…</p>
+      : !overview.renewals.length ? <Empty icon="check">{`تا ${fa(HOSTING_RENEWAL_HORIZON_DAYS)} روز آینده سرویس دوره‌ای نیازمند تمدید ندارید.`}</Empty>
+      : <>
+        <ul className={s.renewalRows}>
+          {overview.renewals.map(row => {
+            const serviceHref = base + '/services/' + row.id
+            const invoiceHref = row.invoice ? base + '/invoices/' + encodeURIComponent(row.invoice.number) : null
+            const serviceLabelId = `cloud-renewal-label-${row.id}`
+            return <li key={row.id}>
+              <div className={s.rowText}>
+                <strong id={serviceLabelId}><Link href={serviceHref}><bdi>{row.label}</bdi></Link></strong>
+                <small><time dateTime={row.dueAt}>{date(row.dueAt)}</time> · {row.overdue ? 'سررسید گذشته' : 'سررسید تمدید'}{row.status === 'SUSPENDED' && ' · معلق'}</small>
+              </div>
+              <div className={s.renewalInvoice}>
+                <small>{row.invoice
+                  ? row.invoice.status === 'PAID' ? 'پرداخت‌شده؛ تمدید هنوز اعمال نشده' : 'فاکتور در انتظار پرداخت'
+                  : row.renewable ? 'فاکتور فعال برای این دوره یافت نشد' : 'قیمت تمدید تعیین نشده'}</small>
+                {row.invoice && <bdi>{row.invoice.number}</bdi>}
+              </div>
+              <Link className={s.renewalAction} aria-describedby={serviceLabelId} href={invoiceHref || (row.renewable ? serviceHref : base + '/support')}>
+                {row.invoice ? row.invoice.status === 'PAID' ? 'مشاهدهٔ فاکتور' : 'مشاهده و پرداخت' : row.renewable ? 'تمدید سرویس' : 'تماس با پشتیبانی'}
+                <Icon name="arrow" size={15} />
+              </Link>
+            </li>
+          })}
+        </ul>
+        {overview.renewalsTotal > overview.renewals.length && <p className={s.renewalMore}>{fa(overview.renewalsTotal - overview.renewals.length)} مورد دیگر در فهرست سرویس‌ها</p>}
+      </>}
+  </section>
+}
+
 export default function CloudOverview() {
   const { services, domains, failed, retry } = useCloudData()
   const history = useOverview()
@@ -154,7 +192,7 @@ export default function CloudOverview() {
     cpu: sum.cpu + row.product.cpuCores, ram: sum.ram + row.product.ramMb, disk: sum.disk + row.product.diskGb,
   }), { cpu: 0, ram: 0, disk: 0 })
   const attention = [
-    ...(services ?? []).filter(row => ['FAILED', 'SUSPENDED'].includes(row.status) || (row.status === 'ACTIVE' && (daysLeft(row.nextDueAt) ?? Infinity) <= 30))
+    ...(services ?? []).filter(row => row.status === 'FAILED' || (row.status === 'SUSPENDED' && !history.overview?.renewals.some(renewal => renewal.id === row.id)))
       .map(row => ({ key: 's' + row.id, href: base + '/services/' + row.id, label: row.label, status: SERVICE_STATUS[row.status as ServiceStatus]?.label ?? row.status, at: row.status === 'ACTIVE' ? row.nextDueAt : null })),
     ...(domains ?? []).filter(row => row.status === 'EXPIRED' || (row.status === 'ACTIVE' && (daysLeft(row.expiresAt) ?? Infinity) <= 30))
       .map(row => ({ key: 'd' + row.id, href: base + '/domains/' + row.id, label: row.display, status: DOMAIN_STATUS[row.status as DomainStatus]?.label ?? row.status, at: row.status === 'ACTIVE' ? row.expiresAt : null })),
@@ -162,19 +200,19 @@ export default function CloudOverview() {
 
   return <div className={s.page} dir="rtl">
     <OverviewBanner />
-    {failed ? <div className={s.error} role="alert">اطلاعات سرویس‌ها دریافت نشد.<button type="button" onClick={retry}>تلاش دوباره</button></div> : <>
+    {failed ? <div className={s.error} role="alert">اطلاعات سرویس‌ها دریافت نشد.<button type="button" onClick={retry}>تلاش دوباره</button></div> :
       <section aria-label="خلاصهٔ منابع ابری" className={s.stats} aria-busy={loading}>
         {cards.map(card => <Link className={s.stat} href={base + '/' + card.path} key={card.path} data-resource={card.path}>
           <span className={s.statHead}><span className={s.icon}><Icon name={card.icon} size={20} /></span><Icon name="arrow" size={17} /></span>
           <span className={s.statValue}><span>{card.label}</span><strong>{loading ? '…' : fa(card.rows.length)}</strong></span>
           {!loading && <span className={s.statFoot}><span className={s.dot} />{fa(card.active)} فعال</span>}
         </Link>)}
-      </section>
-      <div className={s.operations}>
-        <Inventory loading={loading} services={services ?? []} />
-        <Attention loading={loading} items={attention} />
-      </div>
-    </>}
+      </section>}
+    <Renewals {...history} />
+    {!failed && <div className={s.operations}>
+      <Inventory loading={loading} services={services ?? []} />
+      <Attention loading={loading} items={attention} />
+    </div>}
     <div className={s.history}>
       {!failed && <Capacity loading={loading} hasServers={allocated.length > 0} capacity={capacity} />}
       <Invoices {...history} />

@@ -2,6 +2,7 @@ import { db } from '@/platform/database/prisma'
 import { cloudOrderMeta } from '@/modules/checkout/domain/surface'
 import { invoiceSubject } from '@/modules/billing/domain/invoice-subject'
 import type { CloudFinancialPage,CloudFinancialRow,CloudWorkspaceOverview } from '../domain/workspace'
+import { cloudServiceRenewals } from './renewal-workspace'
 
 /** Seek over owned invoices; exact JSON filtering also supports legacy whitespace.
  * Bounded scans return a continuation instead of silently discarding older rows. */
@@ -24,10 +25,11 @@ export async function cloudFinancialPage(userId:number,before?:number):Promise<C
 }
 
 export async function cloudWorkspaceOverview(userId:number):Promise<CloudWorkspaceOverview>{
-  const [financial,serviceEvents,domainEvents]=await Promise.all([
+  const [financial,serviceEvents,domainEvents,renewals]=await Promise.all([
     cloudFinancialPage(userId),
     db.hostingAction.findMany({where:{service:{userId}},orderBy:{id:'desc'},take:8,select:{id:true,kind:true,status:true,createdAt:true,service:{select:{id:true,label:true}}}}),
     db.domainAction.findMany({where:{domain:{userId}},orderBy:{id:'desc'},take:8,select:{id:true,kind:true,status:true,createdAt:true,domain:{select:{id:true,name:true}}}}),
+    cloudServiceRenewals(userId),
   ])
-  return{recentInvoices:financial.items.slice(0,4),financialHasMore:financial.hasMore,activity:[...serviceEvents.map(row=>({id:'s'+row.id,label:row.service.label,kind:row.kind,status:row.status,at:row.createdAt.toISOString(),href:`/cloud/dashboard/services/${row.service.id}`})),...domainEvents.map(row=>({id:'d'+row.id,label:row.domain.name,kind:row.kind,status:row.status,at:row.createdAt.toISOString(),href:`/cloud/dashboard/domains/${row.domain.id}`}))].sort((a,b)=>b.at.localeCompare(a.at)).slice(0,8)}
+  return{...renewals,recentInvoices:financial.items.slice(0,4),financialHasMore:financial.hasMore,activity:[...serviceEvents.map(row=>({id:'s'+row.id,label:row.service.label,kind:row.kind,status:row.status,at:row.createdAt.toISOString(),href:`/cloud/dashboard/services/${row.service.id}`})),...domainEvents.map(row=>({id:'d'+row.id,label:row.domain.name,kind:row.kind,status:row.status,at:row.createdAt.toISOString(),href:`/cloud/dashboard/domains/${row.domain.id}`}))].sort((a,b)=>b.at.localeCompare(a.at)).slice(0,8)}
 }

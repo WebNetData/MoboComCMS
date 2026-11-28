@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import JalaliDateInput from "@/components/date/JalaliDateInput";
 import Icon from "@/components/site/Icon";
 import type { PayFinancialReport, PayReportDay } from "@/modules/billing/domain/pay-report";
+import type { PayTerminalView } from "@/modules/billing/domain/pay";
 import { api, money } from "./client";
 import { Badge, ErrorNotice, Field } from "./shared";
 import s from "./Pay.module.css";
@@ -18,12 +19,13 @@ const columns = [
   ["platformFeeRial", "کارمزد درگاه"],
   ["bankServiceFeeRial", "هزینهٔ تطبیق بانکی"],
   ["roundingRial", "اختلاف گرد کردن"],
+  ["netRial", "خالص قرارداد پذیرنده"],
   ["creditedRial", "اعتبار ریالی"],
   ["creditedUsdt", "اعتبار تتری"],
 ] as const;
 type Result = { key: number; report: PayFinancialReport } | { key: number; error: string };
 
-function Breakdown({ report }: { report: PayFinancialReport }) {
+function Breakdown({ report, children }: { report: PayFinancialReport; children: ReactNode }) {
   const [chosen, setChosen] = useState("");
   const maximum = report.days.reduce((max, day) => BigInt(day.receivedRial) > max ? BigInt(day.receivedRial) : max, 0n);
   const selected = report.days.find(day => day.date === chosen) ?? report.days.filter(day => day.paidCount > 0).at(-1) ?? report.days.at(-1);
@@ -36,6 +38,7 @@ function Breakdown({ report }: { report: PayFinancialReport }) {
         {columns.map(([field, name]) => <div key={field}><dt>{name}</dt><dd>{display(report.totals, field)}</dd></div>)}
       </dl>
     </section>
+    {children}
     <section className={layout.panel} aria-labelledby="pay-report-trend">
       <div className={layout.sectionHead}>
         <div><h2 id="pay-report-trend">روند روزانهٔ وصول</h2><p>تاریخ تأیید پرداخت به وقت تهران</p></div>
@@ -57,14 +60,30 @@ function Breakdown({ report }: { report: PayFinancialReport }) {
   </>;
 }
 
-export default function FinancialReport({ area }: { area: "admin" | "merchant" }) {
+function Closing({ report }: { report: PayFinancialReport }) {
+  return <section className={layout.panel} aria-labelledby="pay-period-close">
+    <div className={layout.sectionHead}><div><h2 id="pay-period-close">جمع‌بندی دریافت و تسویهٔ بازه</h2>
+      <p>ثبت اعتبار پرداخت‌ها منهای تسویه‌های انجام‌شده در همین بازه، بر اساس تاریخ انجام تسویه. اختلاف، تغییر خالص این دو جریان است.</p></div></div>
+    <div className={`${s.tableWrap} ${styles.table} ${styles.closingTable}`} role="region" tabIndex={0} aria-label="جدول جمع‌بندی دریافت و تسویه">
+      <table className={s.table}>
+        <thead><tr><th scope="col">ارز</th><th scope="col">اعتبار ثبت‌شده</th><th scope="col">تسویهٔ انجام‌شده</th><th scope="col">اختلاف بازه</th></tr></thead>
+        <tbody>{report.closing.map(row => <tr key={row.currency}>
+          <th scope="row"><bdi>{row.currency === "IRR" ? "ریال" : "USDT"}</bdi></th>
+          <td><bdi dir="ltr">{row.credited}</bdi></td><td><bdi dir="ltr">{row.paid}</bdi></td><td><strong><bdi dir="ltr">{row.difference}</bdi></strong></td>
+        </tr>)}</tbody>
+      </table>
+    </div>
+  </section>;
+}
+
+export default function FinancialReport({ area, terminals = [] }: { area: "admin" | "merchant"; terminals?: PayTerminalView[] }) {
   const endpoint = area === "admin" ? "/api/admin/mobocom-pay/reports" : "/api/pay/reports";
-  const [request, setRequest] = useState({ key: 0, from: "", to: "" });
+  const [request, setRequest] = useState({ key: 0, from: "", to: "", terminalId: "" });
   const [result, setResult] = useState<Result>();
   const [draft, setDraft] = useState<{ from?: string; to?: string }>({});
   useEffect(() => {
     const controller = new AbortController();
-    const query = new URLSearchParams({ from: request.from, to: request.to });
+    const query = new URLSearchParams({ from: request.from, to: request.to, terminalId: request.terminalId });
     api<PayFinancialReport>(endpoint + "?" + query, { signal: controller.signal })
       .then(report => { if (!controller.signal.aborted) setResult({ key: request.key, report }); })
       .catch(error => {
@@ -76,43 +95,57 @@ export default function FinancialReport({ area }: { area: "admin" | "merchant" }
   function apply(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const fields = new FormData(event.currentTarget);
-    setRequest(previous => ({ key: previous.key + 1, from: String(fields.get("from") ?? ""), to: String(fields.get("to") ?? "") }));
+    setRequest(previous => ({ key: previous.key + 1, from: String(fields.get("from") ?? ""), to: String(fields.get("to") ?? ""), terminalId: String(fields.get("terminalId") ?? "") }));
   }
 
   const current = result?.key === request.key ? result : undefined;
   const lastReport = result && "report" in result ? result.report : undefined;
   const report = current && "report" in current ? current.report : undefined;
   const exportQuery = report ? new URLSearchParams({ from: report.from, to: report.to, format: "csv" }) : undefined;
+  if (report?.terminalId) exportQuery?.set("terminalId", report.terminalId);
   return (
     <div className={layout.workspace}>
       <section className={`${layout.panel} ${styles.control}`} aria-labelledby="pay-report-period">
         <div className={layout.sectionHead}><div><h2 id="pay-report-period">بازهٔ گزارش مالی</h2><p>تقویم شمسی · حداکثر ۹۰ روز · بر مبنای ساعت تهران</p></div></div>
-        <form className={layout.filterForm} onSubmit={apply}>
+        <form className={terminals.length ? `${layout.filterForm} ${styles.terminalFilter}` : layout.filterForm} onSubmit={apply}>
           <Field label="از تاریخ">
             <JalaliDateInput aria-label="از تاریخ" name="from" value={draft.from ?? lastReport?.from ?? request.from} onChange={from => setDraft(previous => ({ ...previous, from }))} required />
           </Field>
           <Field label="تا تاریخ">
             <JalaliDateInput aria-label="تا تاریخ" name="to" value={draft.to ?? lastReport?.to ?? request.to} onChange={to => setDraft(previous => ({ ...previous, to }))} required />
           </Field>
+          {terminals.length > 0 && <Field label="پایانه">
+            <select name="terminalId" aria-label="پایانه" defaultValue="">
+              <option value="">همهٔ پایانه‌ها</option>
+              {terminals.map(terminal => <option key={terminal.id} value={terminal.id}>{terminal.name}</option>)}
+            </select>
+          </Field>}
           <div className={s.actions}><button className={`${s.button} ${layout.primaryAction}`} type="submit">اعمال بازه</button></div>
         </form>
         {exportQuery && <div className={styles.exports}>
           <a className={layout.guideLink} href={endpoint + "?" + exportQuery} download><Icon name="download" size={18} /> CSV وصول روزانه</a>
-          <a className={layout.guideLink} href={endpoint + "?" + exportQuery + "&section=settlements"} download><Icon name="download" size={18} /> CSV تسویه‌ها</a>
+          {!report?.terminalId && <>
+            <a className={layout.guideLink} href={endpoint + "?" + exportQuery + "&section=closing"} download><Icon name="download" size={18} /> CSV جمع‌بندی بازه</a>
+            <a className={layout.guideLink} href={endpoint + "?" + exportQuery + "&section=settlements"} download><Icon name="download" size={18} /> CSV درخواست‌های تسویه</a>
+          </>}
         </div>}
       </section>
       {!current && <p className={styles.empty} role="status">در حال دریافت گزارش…</p>}
       {current && "error" in current && <ErrorNotice error={current.error} />}
       {report && <>
-        <Breakdown key={report.from + report.to} report={report} />
-        <section className={layout.panel} aria-labelledby="pay-report-settlements">
+        <Breakdown key={report.from + report.to + report.terminalId} report={report}>
+          {report.terminalId ? <p className={s.notice}>تسویه به کیف پول پذیرنده تعلق دارد. برای دیدن جمع‌بندی تسویه، «همهٔ پایانه‌ها» را انتخاب کنید.</p> : <Closing report={report} />}
+        </Breakdown>
+        {!report.terminalId && (
+          <section className={layout.panel} aria-labelledby="pay-report-settlements">
           <div className={layout.sectionHead}><div><h2 id="pay-report-settlements">درخواست‌های تسویه</h2><p>درخواست‌های ثبت‌شده در همین بازه، با وضعیت فعلی و مبلغ از موجودی مبدأ</p></div><Icon name="bank" size={23} /></div>
           {report.settlements.length > 0 ? <div className={`${s.tableWrap} ${styles.table}`} role="region" tabIndex={0} aria-label="گزارش درخواست‌های تسویه">
             <table className={s.table}><thead><tr><th scope="col">وضعیت</th><th scope="col">تعداد</th><th scope="col">مبلغ مبدأ</th></tr></thead><tbody>
               {report.settlements.map(row => <tr key={row.currency + row.status}><td><Badge value={row.status} /></td><td>{formatCount(row.count)}</td><td><bdi>{row.currency === "IRR" ? money(row.sourceAmount) : row.sourceAmount + " USDT"}</bdi></td></tr>)}
             </tbody></table>
           </div> : <p className={styles.empty}>در این بازه درخواست تسویه‌ای ثبت نشده است.</p>}
-        </section>
+          </section>
+        )}
       </>}
       {area === "merchant" && <section className={layout.panel} aria-labelledby="pay-report-exports">
         <div className={layout.sectionHead}><div><h2 id="pay-report-exports">خروجی ردیف‌های پرداخت و تسویه</h2><p>این فایل‌ها مستقل از بازهٔ بالا هستند و هر فایل تا ۱۰۰۰ ردیف دارد.</p></div></div>

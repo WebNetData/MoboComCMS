@@ -5,6 +5,7 @@ import { moduleGuard } from '@/extensions/server/modules'
 import { requireUser } from '@/modules/identity/server/access'
 import { HostingRefusal, memberHostingService, memberHostingServices, revealServicePassword } from '@/modules/hosting/server/services'
 import { setServiceAutoRenew } from '@/modules/hosting/server/renewal'
+import { findCurrentRenewalInvoices } from '@/modules/hosting/server/renewal-workspace'
 import { createHourlyService, hourlyUsage, terminateHourlyByCustomer } from '@/modules/hosting/server/metering'
 import { HostingError } from '@/modules/hosting/domain/catalog'
 import { customerPowerOperation } from '@/modules/hosting/server/cloud-operations/commands'
@@ -32,8 +33,13 @@ export async function GET_service(req: NextRequest, { params }: { params: Promis
   const id = await serviceId(params)
   const service = id ? await memberHostingService(user.id, id) : null
   if (!service) return err('سرویس پیدا نشد', 404)
-  const [usage, addons] = await Promise.all([service.cycle === 'HOURLY' ? hourlyUsage(user.id, id) : null, memberAddons(user.id, id)])
-  return privateJson({ service, usage, addons })
+  const [usage, addons, invoices] = await Promise.all([
+    service.cycle === 'HOURLY' ? hourlyUsage(user.id, id) : null,
+    memberAddons(user.id, id),
+    service.cycle !== 'HOURLY' && ['ACTIVE', 'SUSPENDED'].includes(service.status)
+      ? findCurrentRenewalInvoices(user.id, [service], new Date()) : null,
+  ])
+  return privateJson({ service: { ...service, renewalInvoice: invoices?.get(service.id) ?? null }, usage, addons })
 }
 
 /** POST /api/hosting/services/:id { action: 'reveal' } — the login password, to its owner, a few times a minute;
