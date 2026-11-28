@@ -37,6 +37,7 @@ const codes = load('src/modules/forms/server/tracking-code.ts')
 const repair = load('src/modules/forms/server/repair-work')
 const access = load('src/modules/forms/server/repair-access.ts')
 const adminApi = load('src/modules/forms/server/http/repair-work.ts'), publicApi = load('src/modules/forms/server/http/tracking.ts')
+const submissionApi = load('src/modules/site/server/http/admin/forms/submissions/route.ts')
 const faultLoad = sourceLoader({ ...mocks, '@/platform/audit/server': { auditAdmin: async () => undefined, auditAdminStrict: async (input, tx) => { await tx.auditLog.create({ data: { actorUserId: input.actor.id, actorEmail: input.actor.email, action: input.action, targetType: input.targetType, targetId: String(input.targetId), requestId: stamp, ip: '127.0.0.1', metadata: '{}' } }); throw Error('strict audit fault') } } })
 const repairFault = faultLoad('src/modules/forms/server/repair-work')
 const audit = actor => ({ req: new NextRequest('http://site.invalid/api/admin/forms/repair', { headers: { cookie: `next-auth.session-token=${actor.token}` } }), actor: { id: actor.id, email: actor.email } })
@@ -178,6 +179,20 @@ async function main() {
   const saved = await adminApi.PATCH(adminReq(holder, 'PATCH', draft)); assert.equal(saved.status, 200); const apiView = await saved.json()
   assert.equal((await adminApi.PATCH(adminReq(holder, 'PATCH', draft))).status, 409)
   await assert.rejects(update(httpRow, { ...colleague, builder: true }, apiView.revision, { dueAt: null }))
+  const changeStage = (who, stage, id = httpRow.id) => submissionApi.PATCH(new NextRequest('http://site.invalid/api/admin/forms/submissions', {
+    method: 'PATCH',
+    headers: { host: 'site.invalid', Origin: 'http://site.invalid', 'Content-Type': 'application/json', cookie: `next-auth.session-token=${who.token}` },
+    body: JSON.stringify({ id, work: { stage } }),
+  }))
+  for (const stage of ['REPAIRING', 'READY']) {
+    const blocked = await changeStage(manager, stage)
+    assert.equal(blocked.status, 409)
+    assert.match((await blocked.json()).error, /در انتظار تأیید برآورد هزینه توسط مشتری/)
+    const unquoted = await changeStage(manager, stage, legacy.id)
+    assert.equal(unquoted.status, 200, await unquoted.clone().text())
+    assert.equal((await db.formSubmission.findUniqueOrThrow({ where: { id: legacy.id } })).stage, stage)
+  }
+  assert.equal((await db.formSubmission.findUniqueOrThrow({ where: { id: httpRow.id } })).stage, 'RECEIVED')
   const publicReq = (body, origin = 'http://site.invalid') => new NextRequest('http://site.invalid/api/repair-tracking', { method: 'POST', headers: { host: 'site.invalid', 'content-type': 'application/json', ...(origin ? { Origin: origin } : {}) }, body: JSON.stringify(body) })
   const consent = { action: 'request-decision-code', number: httpRow.id, phone: phones[1], estimateId: apiView.estimate.id, decision: 'APPROVED', humanCheck: 'fixture' }
   assert.equal((await publicApi.POST(publicReq(consent, null))).status, 403)
@@ -187,6 +202,14 @@ async function main() {
   const confirmed = await publicApi.POST(publicReq({ ...consent, action: 'decide-estimate', code: apiCode })); assert.equal(confirmed.status, 200)
   assert.equal((await confirmed.json()).request.repair.estimate.status, 'APPROVED')
   assert.equal((await publicApi.POST(publicReq({ ...consent, action: 'decide-estimate', code: apiCode }))).status, 403)
+  assert.equal((await changeStage(colleague, 'REPAIRING')).status, 403)
+  for (const stage of ['REPAIRING', 'READY']) {
+    const moved = await changeStage(manager, stage)
+    assert.equal(moved.status, 200, await moved.clone().text())
+    const updated = await db.formSubmission.findUniqueOrThrow({ where: { id: httpRow.id } })
+    assert.equal(updated.stage, stage)
+    assert.equal(updated.assigneeId, holder.id)
+  }
   console.log('PASS repair approval connected checks')
 }
 main().finally(async () => {

@@ -196,9 +196,12 @@ html[dir='rtl'] .rq-fact dd { text-align: right; }
 .fp-checks { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-size: 13px; }
 .fp-checks > span { color: var(--muted); }
 .fp-checks .sa-check { margin: 0; }
-.fp-work { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-block: 12px; }
+.fp-work { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 12px; margin-block: 12px; }
 .fp-bill, .fp-secrets, .fp-stage { display: grid; gap: 8px; align-content: start; padding: 12px; border: 1px solid var(--border); border-radius: 12px; font-size: 13px; min-width: 0; }
-.fp-stage { grid-column: 1 / -1; }
+.fp-stage { grid-column: 1 / -1; grid-template-columns: minmax(0, 1fr); }
+.fp-stage :is(.ad-range, .sa-row-actions) { flex-wrap: wrap; min-inline-size: 0; }
+.fp-stage .ad-range button { min-block-size: 44px; max-inline-size: 100%; }
+.fp-stage .ad-range button[aria-disabled="true"] { cursor: wait; }
 .fp-bill header, .fp-bill footer, .fp-bill li { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
 .fp-bill ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .fp-bill footer { padding-top: 8px; border-top: 1px dashed var(--border); font-weight: 800; }
@@ -380,7 +383,7 @@ html[dir='rtl'] .rq-fact dd { text-align: right; }
 .dk-pill.is-bad { background: color-mix(in srgb, #dc2626 13%, transparent); color: #b91c1c; }
 .dk-pill.is-muted { background: color-mix(in srgb, #64748b 16%, transparent); color: #475569; }
 .dk-empty { padding: 28px 12px; text-align: center; color: var(--muted); font-size: 13px; border: 1px dashed var(--border); border-radius: 14px; }
-.dk-detail { display: grid; gap: 12px; align-content: start; padding: 18px; border: 1px solid var(--border); border-radius: 16px; background: var(--card); min-width: 0; position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow-y: auto; scrollbar-width: thin; }
+.dk-detail { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-content: start; padding: 18px; border: 1px solid var(--border); border-radius: 16px; background: var(--card); min-width: 0; position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow-y: auto; scrollbar-width: thin; }
 .dk-hint { margin: 0; padding: 48px 16px; text-align: center; color: var(--muted); font-size: 13.5px; }
 .dk-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
 .dk-head h3 { margin: 0; font-size: 17px; }
