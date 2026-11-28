@@ -45,13 +45,14 @@ export async function startPayGateway(req: NextRequest, id: string, input: Recor
     const row = await publicPayment(tx, id)
     const payer = await requirePayPayer(req, id, tx)
     await acceptPurchase(tx, row, input)
-    const catalog = await listCheckoutGateways('IRR', tx)
+    const catalog = await listCheckoutGateways('IRR', tx, undefined, 'pay')
     const gateway = catalog.find(item => checkoutGatewayRef(item) === selected)
     if (!gateway) throw new PayError('درگاه فعال پیدا نشد', 404)
     if (!(await payGatewayOptions(row, tx, catalog)).some(method => method.ref === selected)) throw new PayError('این روش برای این سفارش مجاز یا آماده نیست', 409, 'PAY_GATEWAY_NOT_AVAILABLE')
     const automatic = isAutomaticTransfer(gateway)
     const manual = !automatic && (gateway.provider === 'CARD_TRANSFER' || gateway.provider === 'MANUAL')
     const settings = await paySettings.read(tx)
+    const transferQuote = automatic || (settings.bale.enabled && gateway.provider === 'CARD_TRANSFER' && Boolean(gateway.id))
     if (row.status !== 'PENDING' || row.expiresAt <= new Date()) throw new PayError('مهلت یا وضعیت پرداخت تغییر کرده است', 409)
     if (!settings.incomingEnabled || row.merchant.status !== 'ACTIVE' || !row.terminal.active) throw new PayError('دریافت این پایانه متوقف شده است', 409)
     const owner = await tx.user.findUnique({ where: { id: row.merchant.userId }, select: { status: true } })
@@ -63,7 +64,7 @@ export async function startPayGateway(req: NextRequest, id: string, input: Recor
     if (row.gatewayAttemptRef && row.gatewayAttemptRef !== selected) throw new PayError('پرداخت قبلاً به روش دیگری متصل شده است', 409)
     if (row.invoiceId) {
       const invoice = await tx.invoice.findUniqueOrThrow({ where: { id: row.invoiceId } })
-      if (row.gatewayAttemptStatus === 'READY') return { existing: { invoiceId: invoice.id, gatewayRef: selected, provider: gateway.provider, manual, paymentUrl: manual ? '' : invoice.paymentUrl, status: 'READY' as const } }
+      if (row.gatewayAttemptStatus === 'READY') return { existing: { invoiceId: invoice.id, gatewayRef: selected, provider: gateway.provider, manual: manual && !invoice.paymentUrl, paymentUrl: invoice.paymentUrl, status: 'READY' as const } }
       if (!automatic && row.gatewayAttemptStatus !== 'FAILED') return { existing: { invoiceId: invoice.id, gatewayRef: selected, provider: gateway.provider, manual, paymentUrl: '', status: row.gatewayAttemptStatus === 'STARTING' ? 'STARTING' as const : 'UNKNOWN' as const } }
       // An automatic bank quote has no external side effect. Resume an interrupted
       // local start on its original invoice, while leaving external attempts fenced.
@@ -75,10 +76,10 @@ export async function startPayGateway(req: NextRequest, id: string, input: Recor
     }, tx)
     const changed = await tx.payPayment.updateMany({
       where: { id, status: 'PENDING', invoiceId: row.invoiceId, gatewayAttemptStatus: row.gatewayAttemptStatus, gatewayAttemptToken: row.gatewayAttemptToken },
-      data: { invoiceId: invoice.id, gatewayAttemptRef: selected, gatewayAttemptProvider: gateway.provider, gatewayAttemptStatus: automatic ? 'READY' : 'STARTING', gatewayAttemptToken: token, gatewayAttemptAt: new Date() },
+      data: { invoiceId: invoice.id, gatewayAttemptRef: selected, gatewayAttemptProvider: gateway.provider, gatewayAttemptStatus: transferQuote ? 'READY' : 'STARTING', gatewayAttemptToken: token, gatewayAttemptAt: new Date() },
     })
     if (changed.count !== 1) throw new PayError('پرداخت هم‌زمان تغییر کرده است', 409)
-    if (automatic) {
+    if (transferQuote) {
       if (!gateway.id) throw new PayError('درگاه ثبت‌شده لازم است', 409)
       const quote = await prepareBaleGateway(gateway.id, invoice.number, tx)
       const saved = await tx.invoice.updateMany({
@@ -86,7 +87,7 @@ export async function startPayGateway(req: NextRequest, id: string, input: Recor
         data: { providerTxnId: quote.txnId, paymentUrl: quote.paymentUrl },
       })
       if (saved.count !== 1) throw new PayError('وضعیت فاکتور تغییر کرده است', 409)
-      return { existing: { invoiceId: invoice.id, gatewayRef: selected, provider: gateway.provider, manual, paymentUrl: quote.paymentUrl, status: 'READY' as const } }
+      return { existing: { invoiceId: invoice.id, gatewayRef: selected, provider: gateway.provider, manual: false, paymentUrl: quote.paymentUrl, status: 'READY' as const } }
     }
     // Frenzy callbacks require a durable expected exact provider amount before network I/O.
     if (gateway.provider === 'FRENZYEX') {

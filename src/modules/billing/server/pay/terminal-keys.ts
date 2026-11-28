@@ -31,7 +31,7 @@ export function adminTerminalKeys(actor: PayActor, input: unknown) {
   const merchantId = requiredId(input)
   return payTransaction(async tx => {
     await merchantForAdmin(actor, merchantId, tx)
-    const terminals = await tx.payTerminal.findMany({ where: { merchantId }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], select: {
+    const terminals = await tx.payTerminal.findMany({ where: { merchantId, archivedAt: null }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], select: {
       id: true, name: true, active: true, apiKeys: {
         orderBy: [{ revokedAt: { sort: 'asc', nulls: 'first' } }, { createdAt: 'desc' }, { id: 'desc' }], take: 50, select: projection,
       },

@@ -1049,5 +1049,5 @@
       "migrations": []
     }
   },
-  "unreleased": []
+  "unreleased": ["20270418150000_pay_terminal_archive"]
 }

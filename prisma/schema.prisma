@@ -6087,6 +6087,7 @@ model PayTerminal {
   name String
   returnUrl String
   active Boolean @default(true)
+  archivedAt DateTime?
   createdAt DateTime @default(now())
   merchant PayMerchant @relation(fields: [merchantId], references: [id], onDelete: Restrict)
   payments PayPayment[]

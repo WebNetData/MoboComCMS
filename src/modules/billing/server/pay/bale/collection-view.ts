@@ -11,7 +11,7 @@ import { baleCollectionContext, matchesFrozenSms } from './collection-context'
 import { createBaleCollectionInTransaction } from './collection-create'
 import { invoiceDueMinor } from '@/modules/billing/server/billing'
 import { globalAuthenticationDenied } from '@/modules/identity/server/authentication-restrictions'
-import { autoTransferConfig, transferDisplayDefaults } from '@/modules/billing/domain/auto-transfer'
+import { transferDisplayDefaults } from '@/modules/billing/domain/auto-transfer'
 import { usdtEquivalent } from '@/modules/billing/domain/pay-usdt-equivalent'
 import { currentCurrencyRate } from '@/modules/fx/server/fx'
 
@@ -28,7 +28,8 @@ export async function collectionFor(tx: Prisma.TransactionClient, id: string, re
   }
   if (row.invoice.payCollection) {
     await requirePayPayer(req, row.invoice.payCollection.id, tx)
-    if (row.status === 'PENDING' && (!row.invoice.payCollection.merchant.baleAllowed || !row.invoice.payCollection.terminal.baleEnabled)) throw new PayError('این روش برای پایانه متوقف شده است', 409)
+    if (row.status === 'PENDING' && (row.bankAccount.collectionUse === 'MOBOCOM_PAY' || row.invoice.gateway?.provider === 'MOBOCOM_PAY') &&
+      (!row.invoice.payCollection.merchant.baleAllowed || !row.invoice.payCollection.terminal.baleEnabled)) throw new PayError('این روش برای پایانه متوقف شده است', 409)
   }
   return row
 }
@@ -40,21 +41,27 @@ export function collectionReceiptAvailability(row: Awaited<ReturnType<typeof col
   return { lateReceiptAllowed, canSubmit: eligible && (row.expiresAt > now || lateReceiptAllowed) }
 }
 
+function checkoutContext(tx: Prisma.TransactionClient, row: Awaited<ReturnType<typeof collectionFor>>) {
+  const pay = row.invoice.payCollection
+  return baleCollectionContext(tx, row.gatewayId, undefined, pay ? { merchantUserId: pay.merchant.userId, bankAccountId: row.bankAccountId } : undefined)
+}
+
 export function baleCheckout(id: string, req: NextRequest): Promise<BaleCheckout> {
   return payTransaction(async tx => {
     const row = await collectionFor(tx, id, req), now = new Date(), start = baleEffectiveStart(row)
     const status = row.invoice.status === 'PAID' ? 'PAID' : row.status === 'PENDING' && (row.expiresAt <= now || !['UNPAID','DRAFT'].includes(row.invoice.status)) ? 'EXPIRED' : row.status as BaleCheckout['status']
     const { lateReceiptAllowed } = collectionReceiptAvailability(row, now)
-    let ready = false
+    let display = transferDisplayDefaults(), ready = false
     if (status === 'PENDING') {
       try {
-        const context = await baleCollectionContext(tx, row.gatewayId)
-        ready = row.bankAccount.active && row.bankAccountId === context.bank.id && context.sms.some(source => matchesFrozenSms(row, source))
+        const context = await checkoutContext(tx, row)
+        ready = row.bankAccount.active && row.bankAccountId === context.bank.id &&
+          (Boolean(row.invoice.payCollection) || context.sms.some(source => matchesFrozenSms(row, source)))
+        if (ready) display = context.display
       } catch (error) {
         if (!(error instanceof PayError)) throw error
       }
     }
-    const display = ready && row.invoice.gateway ? autoTransferConfig(row.invoice.gateway.config).autoDisplay : transferDisplayDefaults()
     // Omitted fields never leave the server, including after browser reload or polling.
     const bank = { bankName: display.bankName ? row.bankAccount.bankName : '', holderName: display.holderName ? row.bankAccount.holderName : '', cardNumber: display.cardNumber ? row.bankAccount.cardNumber : '', accountNumber: display.accountNumber ? row.bankAccount.accountNumber : '', iban: display.iban ? row.bankAccount.sheba : '' }
     return { id, status, invoiceNumber: row.invoice.number, principalRial: row.principalRial.toString(), adjustmentRial: row.adjustmentRial.toString(), collectedRial: row.collectedRial.toString(),
@@ -72,19 +79,20 @@ export function baleCheckout(id: string, req: NextRequest): Promise<BaleCheckout
 export async function changeBaleCheckout(id: string, req: NextRequest, action: unknown) {
   const chosen = await payTransaction(async tx => {
     const row = await collectionFor(tx, id, req), now = new Date()
-    const context = await baleCollectionContext(tx, row.gatewayId)
+    const context = await checkoutContext(tx, row)
     if (action === 'renew') {
       if (row.status !== 'EXPIRED' && !(row.status === 'PENDING' && row.expiresAt <= now) && !(row.status === 'REVIEW' && row.reviewReason === 'RECEIPT_REJECTED')) throw new PayError('فقط درخواست منقضی یا رسید ردشده قابل نوسازی است', 409)
       return (await createBaleCollectionInTransaction(tx, row.invoice.number, row.gatewayId)).id
     }
     if (action !== 'accept') throw new PayError('عملیات پرداخت معتبر نیست', 422)
     if (row.status !== 'PENDING' || row.expiresAt <= now || row.invoice.status !== 'UNPAID' || row.activeInvoiceId !== row.invoiceId) throw new PayError('مهلت یا وضعیت درخواست تغییر کرده است', 409)
-    if (row.bankAccountId !== context.bank.id || !context.sms.some(source => matchesFrozenSms(row, source))) throw new PayError('منبع پیامک این درخواست تغییر کرده است', 409)
+    if (row.bankAccountId !== context.bank.id || !row.invoice.payCollection && !context.sms.some(source => matchesFrozenSms(row, source))) throw new PayError('مقصد یا منبع این درخواست تغییر کرده است', 409)
     if (row.acceptedAt) return row.id
     if (baleEffectiveStart({ ...row, acceptedAt: now }).getTime() + 60000 > row.expiresAt.getTime()) throw new PayError('مهلت کافی برای شروع پرداخت نمانده است؛ درخواست را پس از انقضا تازه کنید', 409)
     const claim = await tx.payBaleCollection.updateMany({ where: { id, status: 'PENDING', acceptedAt: null, activeInvoiceId: row.invoiceId }, data: { acceptedAt: now } })
     if (claim.count !== 1) throw new PayError('پذیرش کارمزد هم‌زمان تغییر کرده است', 409)
-    await auditSystemStrict({ actor: context.owner, action: 'mobocom-pay.bale.accept', targetType: 'mobocom-pay', targetId: id, metadata: { adjustmentRial: row.adjustmentRial, disclosure: 'COLLECTION_SERVICE_FEE' } }, tx)
+    const owner = await tx.user.findUniqueOrThrow({ where: { id: row.ownerUserId }, select: { id: true, email: true } })
+    await auditSystemStrict({ actor: owner, action: 'mobocom-pay.bale.accept', targetType: 'mobocom-pay', targetId: id, metadata: { adjustmentRial: row.adjustmentRial, disclosure: 'COLLECTION_SERVICE_FEE' } }, tx)
     return row.id
   })
   return baleCheckout(chosen, req)

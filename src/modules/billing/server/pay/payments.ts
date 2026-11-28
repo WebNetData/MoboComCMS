@@ -8,7 +8,7 @@ import { isModuleEnabled } from '@/extensions/server/modules'
 import { reconcileReference } from './reconcile'
 import { listCheckoutGateways } from '@/modules/billing/server/gateways'
 import { validRoutingRef } from '@/modules/billing/domain/pay-routing'
-import { payCollectionBank } from './gateway-access'
+import { payCollectionBank } from './bank-destination'
 import { eligiblePayGateways, payGatewayOptions } from './gateway-options'
 
 export const fingerprint = (value: unknown) =>
@@ -45,7 +45,7 @@ export async function createPayPayment(actor: PayActor, input: Record<string, un
     if (await tx.payPayment.count({ where: { terminalId, externalId } }))
       throw new PayError('شناسهٔ سفارش قبلاً استفاده شده است', 409)
     const bank = await payCollectionBank(tx, settings.bankAccountIds)
-    const catalog = await listCheckoutGateways('IRR', tx)
+    const catalog = await listCheckoutGateways('IRR', tx, undefined, 'pay')
     const methods = eligiblePayGateways(catalog, { merchant, terminal }, {
       totalMinor: amounts.totalMinor, creditCurrency: merchant.creditCurrency, requestedGatewayRef: gatewayRef, hasBankAccount: Boolean(bank),
     })
