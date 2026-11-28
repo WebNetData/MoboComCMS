@@ -1,3 +1,9 @@
+# Pay Admin visual workspace — 2026-11-28
+
+Continued from `56338fde` in `.mobocom/pay-reliability-engineering`.
+The Pay Admin views use consistent panels, forms and operations hierarchy.
+[Pay handoff](../docs/agent/handoffs/MOBOCOM_PAY.md#pay-admin-visual-workspace--2026-11-28).
+
 # Cloud workspace and Pay landing refinement — 2026-11-28
 
 Continue in `.mobocom/pay-reliability-engineering` from `4d4d9703`.

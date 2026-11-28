@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import workbench from './OperationsWorkbench.module.css'
 import type { PayPaymentView } from "@/modules/billing/domain/pay";
 import { api, labels } from "../client";
 import { ErrorNotice, Field } from "../shared";
@@ -49,7 +50,7 @@ export default function PaymentDesk() {
           <div className={s.actions}><button className={`${s.button} ${layout.primaryAction}`} type="submit">جست‌وجو</button><button className={s.secondary} type="reset">پاک‌کردن فیلترها</button></div>
         </form>
       </section>
-      <div aria-busy={!current}>
+      <div className={workbench.resultPanel} aria-busy={!current}>
         {!current && <p role="status">در حال دریافت پرداخت‌ها…</p>}
         {current && "error" in current && <><ErrorNotice error={current.error} /><button type="button" className={s.secondary} onClick={() => setRefresh(value => value + 1)}>تلاش دوباره</button></>}
         {current && "data" in current && <>

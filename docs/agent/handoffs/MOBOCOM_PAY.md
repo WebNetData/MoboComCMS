@@ -3206,3 +3206,22 @@ and 1920 pixels across light and dark configurations, with scoped axe at
 The change is driven by Pay landing presentation. See the
 [Cloud workspace follow-up](CLOUD_WORKSPACE.md#workspace-identity-and-overview-refinement--2026-11-28)
 for the paired worktree record.
+
+## Pay Admin visual workspace — 2026-11-28
+
+Continued from `56338fde` in `.mobocom/pay-reliability-engineering` on
+`fix/pay-account-lifecycle-and-workspace`. Scope is the content of eleven
+Pay Admin views. The navigation and its destinations retain their ownership.
+The workspace presents the operation queue and bank readiness clearly and
+uses consistent panels, form controls, tables, state badges and focus styles.
+Settings group receiving and fees, smart transfer, settlement and SMS
+sources. Merchant details and the operational desks keep existing
+permission checks, request handlers and success/empty/error flows.
+
+All 17 payment regressions passed on isolated PostgreSQL 17. TypeScript,
+source checks and scoped React Doctor completed. The preview uses synthetic
+administrator, merchant and bank-event records. It checks all eleven views
+in Edge at 1440px dark and 390px light with zero scoped axe violations. It verifies menu routes and persisted invoice expiry after reload. The independent review worker was unavailable; the lead reviewed the final diff.
+Screenshots are local in `var/pay-admin-design`. Rollback is a revert of this
+presentation commit. No database migration or production rollout is part
+of this change.

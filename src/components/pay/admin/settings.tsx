@@ -10,6 +10,8 @@ import SmsSources from './sms-sources';
 import Link from '@/components/AppLink';
 import OperatorGuide from "./operator-guide";
 import layout from "../WorkspaceContent.module.css";
+import Icon from "@/components/site/Icon";
+import d from "./AdminSettings.module.css";
 import FeeFields from "./fee-fields";
 import { readFeeFields } from "./fee-form-values";
 import feeStyle from "./FeeFields.module.css";
@@ -57,9 +59,9 @@ export default function Settings({
     }
   }
   return (
-    <div className={layout.workspace}>
-    <section className={`${layout.panel} ${layout.settingsIndex}`} aria-labelledby="pay-settings-index">
-      <div className={layout.sectionHead}><div><h2 id="pay-settings-index">پیکربندی درگاه</h2><p>تنظیمات دریافت و تسویه با هم ذخیره می‌شوند. هر منبع پیامک دکمهٔ ذخیرهٔ خودش را دارد.</p></div></div>
+    <div className={d.workspace}>
+    <section className={`${layout.panel} ${d.index}`} aria-labelledby="pay-settings-index">
+      <div className={d.title}><span className={d.icon}><Icon name="sliders" size={19} /></span><div><h2 id="pay-settings-index">پیکربندی درگاه</h2><p>تنظیمات دریافت و تسویه را یکجا ذخیره کنید. منابع پیامک جداگانه ذخیره می‌شوند.</p></div></div>
       <div className={layout.guideIndex}>
         <a className={layout.guideLink} href="#pay-receive-settings">دریافت و کارمزد</a>
         <a className={layout.guideLink} href="#pay-sms-policy">سیاست تطبیق پیامک</a>
@@ -68,10 +70,12 @@ export default function Settings({
         <a className={layout.guideLink} href="#pay-admin-guide">راهنمای مدیریت</a>
       </div>
     </section>
-    <section id="pay-receive-settings" className={`${s.card} ${s.stack}`}>
-      <h2>تنظیمات دریافت و تسویه</h2>
-      <form className={s.stack} key={data.settingsRevision} onSubmit={save} onChange={() => setFeeError("")}>
-      <label className={s.check}>
+    <section aria-label="تنظیمات دریافت و تسویه">
+      <form className={d.workspace} key={data.settingsRevision} onSubmit={save} onChange={() => setFeeError("")}>
+      <section id="pay-receive-settings" className={`${s.card} ${d.section}`} aria-labelledby="pay-receive-title">
+      <div className={d.title}><span className={d.icon}><Icon name="bank" size={19} /></span><div><h2 id="pay-receive-title">دریافت و کارمزد</h2><p>حساب‌های مقصد، مهلت فاکتور و حدود مبالغ را تعیین کنید.</p></div></div>
+      <div className={d.fields}>
+      <label className={`${s.check} ${d.toggle}`}>
         <input
           type="checkbox"
           checked={settings.incomingEnabled}
@@ -85,16 +89,15 @@ export default function Settings({
           onChange={(e) => update({ providerId: e.target.value })}
         />
       </Field>
-      <fieldset>
+      </div>
+      <fieldset className={d.group}>
         <legend>کارت‌ها و حساب‌های مقصد دریافت</legend>
         <p className={s.muted}>چند حساب فعال را انتخاب کنید. برای هر حساب، منبع پیامک جداگانه ثبت کنید تا واریزهای همان حساب تطبیق داده شوند.</p>
+        {!data.bankAccounts.length && <p className={s.muted}>برای انتخاب مقصد، ابتدا یک کارت یا حساب بانکی ثبت کنید.</p>}
+        <div className={d.accountGrid}>
         {data.bankAccounts.map((a) => (
-          <label key={a.id} className={s.row}>
-            <span>
-              {a.title} · {a.bankName} · {a.cardNumber}
-              {!a.active && " (غیرفعال)"}
-              {a.collectionUse === 'MOBOCOM_PAY' && ' · حساب اختصاصی'}
-            </span>
+          <label key={a.id} className={d.account} data-selected={selectedAccounts.has(a.id)}>
+            <span><strong>{a.title} · {a.bankName}</strong><small><bdi>{a.cardNumber}</bdi>{!a.active && " · غیرفعال"}{a.collectionUse === "MOBOCOM_PAY" && " · حساب اختصاصی"}</small></span>
             <input
               type="checkbox"
               disabled={!a.active && !selectedAccounts.has(a.id)}
@@ -109,19 +112,20 @@ export default function Settings({
             />
           </label>
         ))}
+        </div>
       </fieldset>
-      <fieldset className={feeStyle.group}>
+      <fieldset className={d.group}>
         <legend>مهلت فاکتورهای موبوکام‌پی</legend>
         <Field label="مهلت پرداخت هر فاکتور (دقیقه)"><input type="number" dir="ltr" min={5} max={120} list="pay-invoice-minutes" value={settings.paymentMinutes} onChange={event => { if (event.target.value) update({ paymentMinutes: Number(event.target.value) }) }} required /></Field>
         <datalist id="pay-invoice-minutes"><option value="30" /><option value="60" /></datalist>
         <p className={s.muted}>از صدور لینک تا پایان فرصت واریز. تغییر مهلت روی فاکتورهای تازه اعمال می‌شود.</p>
       </fieldset>
-      <fieldset className={feeStyle.group}>
+      <fieldset className={d.group}>
         <legend>کارمزد پیش‌فرض دریافت</legend>
         <p className={s.muted}>کارمزد برابر درصد مبلغ سفارش به‌علاوهٔ مبلغ ثابت است و حداکثر تا سقف تعیین‌شده محاسبه می‌شود.</p>
         <FeeFields name="collection-fee" values={{ bps: settings.feeBps, flat: settings.flatFeeRial, cap: settings.feeCapRial }} />
       </fieldset>
-      <div className={s.grid}>
+      <div className={d.fields}>
         {(
           [
             ["minPaymentRial", "حداقل پرداخت ریال"],
@@ -142,28 +146,37 @@ export default function Settings({
           </Field>
         ))}
       </div>
- <fieldset id="pay-sms-policy" className={`${s.stack} ${feeStyle.group}`}>
- <legend>کارت‌به‌کارت هوشمند</legend>
+      </section>
+ <section id="pay-sms-policy" className={`${s.card} ${d.section}`} aria-labelledby="pay-sms-policy-title">
+ <div className={d.title}><span className={d.icon}><Icon name="phone" size={19} /></span><div><h2 id="pay-sms-policy-title">کارت‌به‌کارت هوشمند</h2><p>مبلغ یکتا و تأیید دریافت از طریق پیامک بانکی</p></div></div>
  <label className={s.check}><input type="checkbox" checked={settings.bale.enabled} onChange={(e) => update({ bale: { ...settings.bale, enabled: e.target.checked } })} /> مبلغ یکتای کارت‌به‌کارت و تأیید خودکار با پیامک</label>
  <p className={s.muted}>مبلغ واریز هر فاکتور تازه یکتا می‌شود و رقم آخر آن صفر است. رسید در هر حالت لازم است. اگر پیامک معتبر نرسد، مدیر می‌تواند رسید را دستی بررسی کند.</p>
  <div className={layout.guideIndex}><Link className={layout.guideLink} href="/admin/gateways">تنظیم حساب مقصد درگاه</Link><a className={layout.guideLink} href="#pay-sms-sources">مدیریت منبع پیامک</a></div>
  <details className={feeStyle.progressive}>
  <summary>بازهٔ مبلغ تشخیص و تنظیمات سایر فاکتورهای سایت</summary>
- <div className={s.grid}>
+ <div className={d.fields}>
  <Field label="حداقل مبلغ تشخیص (ریال)"><input dir="ltr" inputMode="numeric" value={settings.bale.minAdjustmentRial} onChange={(e) => update({ bale: { ...settings.bale, minAdjustmentRial: latinDigits(e.target.value) } })} /></Field>
  <Field label="حداکثر مبلغ افزوده به واریز (ریال)"><input dir="ltr" inputMode="numeric" value={settings.bale.maxAdjustmentRial} onChange={(e) => update({ bale: { ...settings.bale, maxAdjustmentRial: latinDigits(e.target.value) } })} /></Field>
  <Field label="مهلت فاکتورهای خارج از پنل پذیرندگان (دقیقه)"><input dir="ltr" type="number" min={5} max={120} value={settings.bale.minutes} onChange={(e) => { const value = e.target.value; if (/^\d+$/.test(value) && Number.isSafeInteger(Number(value))) update({ bale: { ...settings.bale, minutes: Number(value) } }) }} /></Field>
  </div>
  <p className={s.muted}>حدها باید مضرب ۱۰ ریال باشند. اگر مبلغ فاکتور مضرب ۱۰ نباشد، تا ۹ ریال گردکردن جداگانه در مبلغ نهایی لحاظ می‌شود.</p>
  </details>
- </fieldset>
-      <h3 id="pay-settlement-settings">مسیرهای تسویه</h3>
+ </section>
+      <section id="pay-settlement-settings" className={`${s.card} ${d.section}`} aria-labelledby="pay-settlement-settings-title">
+      <div className={d.title}><span className={d.icon}><Icon name="wallet" size={19} /></span><div><h2 id="pay-settlement-settings-title">مسیرهای تسویه</h2><p>سیاست تأیید، اعتبار نرخ و کارمزد هر مسیر را مدیریت کنید.</p></div></div>
+      <div className={d.fields}>
+      <div>
       <Field label="آستانهٔ تأیید دو مدیر (ریال؛ صفر یعنی غیرفعال)"><input dir="ltr" inputMode="numeric" value={settings.settlementApprovalThresholdRial} onChange={e => update({ settlementApprovalThresholdRial: e.target.value })} /></Field>
       <p className={s.muted}>برای درخواست‌های جدید با مبلغ معادل ریالی برابر یا بالاتر از آستانه، تأیید دو مدیر متفاوت لازم است. سیاست هر درخواست هنگام رزرو ثبت می‌شود.</p>
+      </div>
+      <div>
       <Field label="حداکثر عمر نرخ USDT (دقیقه، ۱۵ تا ۱۴۴۰)"><input dir="ltr" type="number" min={15} max={1440} value={settings.usdtRateMaxAgeMinutes ?? 60} onChange={e => { const raw = e.target.value; const value = Number(raw); if (raw.trim() && Number.isInteger(value)) update({ usdtRateMaxAgeMinutes: value }) }} /></Field>
       <p className={s.muted}>نرخ ریالی از تنظیمات فعلی تأمین می‌شود؛ نرخ ناموجود یا قدیمی مانع دریافت نرخ تسویه است.</p>
+      </div>
+      </div>
+      <div className={d.railGrid}>
       {settings.rails.map((r, index) => (
-        <fieldset key={r.id}>
+        <fieldset key={r.id} className={d.group}>
           <legend>
             {r.asset} · {r.network}{r.id === "USDT_BSC" && " · Binance-Peg BSC-USD (bridged)"}
           </legend>
@@ -207,7 +220,9 @@ export default function Settings({
           <FeeFields name={`fee-${r.id}`} currency={r.fees?.currency} values={r.fees ?? { bps: 0, flat: r.feeRial, cap: "0" }} />
         </fieldset>
       ))}
-      <div className={s.actions}>
+      </div>
+      </section>
+      <div className={d.saveBar}>
         <button
           type="submit"
           className={`${s.button} ${layout.primaryAction}`}
@@ -217,11 +232,11 @@ export default function Settings({
         </button>
         {settingsSaved && <p role="status" className={layout.saveState}>تنظیمات دریافت و تسویه ذخیره شد.</p>}
         {!settingsSaved && error && <p className={layout.saveState}>{error}</p>}
+        <ErrorNotice error={feeError} />
       </div>
-      <ErrorNotice error={feeError} />
       </form>
     </section>
-    <section id="pay-sms-sources" aria-label="پیکربندی منابع دریافت">
+    <section id="pay-sms-sources" className={d.sourceSection} aria-label="پیکربندی منابع دریافت">
       <div className={layout.guideIndex}>
         <Link className={layout.guideLink} href="/admin/gateways">تنظیم حساب مقصد</Link>
         <a className={layout.guideLink} href="#sms-forwarder-guide-title">راهنمای SMS Forwarder</a>
