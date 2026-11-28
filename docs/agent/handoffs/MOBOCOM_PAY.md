@@ -1,3 +1,27 @@
+## Merchant dashboard redesign — 2026-11-28
+
+- Worktree `.mobocom/pay-private-api-access`, branch
+  `feat/pay-merchant-dashboard-redesign`, based on `origin/main` at
+  `16cfa69a`.
+- The merchant shell uses the canonical MoboCom profile portrait in the top
+  bar, desktop sidebar and mobile drawer. The sidebar adds a direct link to
+  the payment form. The native drawer returns focus when dismissed.
+- Merchant headers, form and panel surfaces cover the overview, payments,
+  settlements, terminals, bot operations, reports, API guide and webhooks.
+  Merchant support keeps the shared TicketCenter and uses the merchant theme.
+  Public checkout and Admin keep their existing surfaces.
+- Local Edge with a migrated PostgreSQL fixture opened all nine pages at
+  1440 px in both themes, 390 px dark and 320 px light. Verified active desktop
+  navigation, payment shortcut, profile image, mobile Escape and focus return,
+  and no horizontal document overflow. Scoped axe returned zero violations on
+  all nine desktop content regions and the mobile drawer.
+- TypeScript, architecture and source checks, React Doctor and the connected
+  `pay-shared-checkout`, `pay-private-api-access` and `pay-settlement-center`
+  checks passed. Browser verification used synthetic records and triggered no
+  real transfers. Local screenshots are under `playwright-report/pay-merchant-*`.
+- Rollback is a revert of the dashboard commit. The slice has no migration or
+  payment/API contract change.
+
 ## Statement preview and operations follow-up — 2026-11-28
 
 Continue `.mobocom/pay-private-api-access` on

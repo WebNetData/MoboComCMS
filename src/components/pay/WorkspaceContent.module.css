@@ -20,6 +20,7 @@
   border: 1px solid var(--pay-border);
   border-radius: 18px;
   background: var(--pay-surface);
+  box-shadow: var(--merchant-shadow, none);
 }
 .sectionHead { display: flex; justify-content: space-between; align-items: start; flex-wrap: wrap; gap: 12px 24px; margin-block-end: 20px; }
 .sectionHead h2 { margin: 0; font-size: clamp(1.05rem, 1.6vw, 1.3rem); line-height: 1.55; }

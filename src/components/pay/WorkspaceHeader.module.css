@@ -14,3 +14,52 @@
 .actions:empty { display:none; }
 @media(max-width:520px) { .heading { gap:16px; } .identity { flex-basis:100%; } .actions { width:100%; justify-content:space-between; } }
 @media(max-width:520px) { .merchant { padding:20px; margin-bottom:20px; } .merchant::before { inset-block:20px; } .merchant .actions { justify-content:flex-start; } }
+
+.merchant {
+  --section-ink: #6652c6;
+  isolation: isolate;
+  min-block-size: 148px;
+  padding: clamp(18px, 3vw, 36px);
+  border-radius: 20px;
+  background: radial-gradient(ellipse at 100% 0%, color-mix(in srgb, var(--section-ink) 13%, transparent), transparent 65%), var(--sds-color-background-default-default);
+  box-shadow: var(--merchant-shadow);
+}
+.merchant[data-view="payments"], .merchant[data-view="reports"] { --section-ink: #4163b0; }
+.merchant[data-view="settlements"] { --section-ink: #00a38e; }
+.merchant[data-view="api"], .merchant[data-view="webhooks"], .merchant[data-view="operations"] { --section-ink: #8a52aa; }
+.merchant::before { display: none; }
+.merchant .identity { display: flex; align-items: center; gap: 17px; }
+.merchant .identity > div { min-inline-size: 0; overflow-wrap: anywhere; }
+.viewIcon {
+  display: grid; place-items: center; flex: none;
+  inline-size: 49px; block-size: 49px; border-radius: 14px;
+  color: color-mix(in srgb, var(--section-ink) 76%, var(--sds-color-text-default-default));
+  background: color-mix(in srgb, var(--section-ink) 15%, var(--sds-color-background-default-default));
+}
+.merchant h1 { font-weight: 770; }
+.merchant[data-view="overview"] {
+  min-block-size: 190px;
+  overflow: hidden;
+  border-color: #504782;
+  color: #f8f6ff;
+  background: radial-gradient(ellipse at 13% 4%, #463773, transparent 64%), #201c3d;
+}
+.merchant[data-view="overview"]::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  inset: 0;
+  background: repeating-linear-gradient(0deg, #f3dcff23 0 1px, transparent 1px 26px), repeating-linear-gradient(90deg, #f3dcff23 0 1px, transparent 1px 26px);
+  mask-image: radial-gradient(ellipse at 13% 70%, black, transparent 56%);
+}
+.merchant[data-view="overview"] h1 { color: inherit; font-size: clamp(1.75rem, 3.4vw, 2.85rem); }
+.merchant[data-view="overview"] :is(.context,p) { color: #e2d9f6; }
+.merchant[data-view="overview"] .viewIcon { background: #514480; color: #f4e9ff; }
+@media (max-width: 520px) {
+  .merchant { min-block-size: 134px; border-radius: 16px; }
+  .merchant[data-view="overview"] { min-block-size: 164px; }
+  .merchant .identity { gap: 11px; align-items: flex-start; }
+  .viewIcon { inline-size: 39px; block-size: 39px; border-radius: 10px; }
+  .viewIcon svg { inline-size: 19px; block-size: 19px; }
+}

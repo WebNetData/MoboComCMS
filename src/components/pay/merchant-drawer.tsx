@@ -24,10 +24,11 @@ export default function MerchantDrawer({ children, open, onClose }: { children: 
       desktop.removeEventListener('change', resized)
       if (box.open) box.close()
       document.body.style.overflow = overflow
-      if (previous?.isConnected) previous.focus({ preventScroll: true })
+      if (previous?.isConnected && previous.getClientRects().length) previous.focus({ preventScroll: true })
+      else document.getElementById('merchant-content')?.focus({ preventScroll: true })
     }
   }, [open, onClose])
-  return <dialog ref={dialog} id="merchant-mobile-navigation" className={s.drawer} aria-labelledby="merchant-menu-title" onClose={onClose}
+  return <dialog ref={dialog} id="merchant-mobile-navigation" className={s.drawer} aria-labelledby="merchant-menu-title"
     onCancel={event => { event.preventDefault(); onClose() }}
     onClick={event => {
       if (event.target !== dialog.current) return

@@ -107,7 +107,8 @@
 .card {
   background: var(--sds-color-background-default-default);
   border: 1px solid var(--sds-color-border-default-default);
-  border-radius: 12px;
+  border-radius: var(--merchant-panel-radius, 12px);
+  box-shadow: var(--merchant-shadow, none);
   padding: 20px;
   min-width: 0;
 }
