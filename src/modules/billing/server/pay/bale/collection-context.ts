@@ -9,8 +9,11 @@ import { autoTransferConfig, transferDisplayDefaults } from '@/modules/billing/d
 import { smsSourceConfig } from '@/modules/billing/domain/pay-sms-source'
 import { decryptPanelCredential } from '@/modules/providers/server/panel-credentials'
 import { payCollectionBank } from '../bank-destination'
+import { createHash } from 'node:crypto'
+import { smsAccountDigits } from '../sms/account'
 
 type MerchantScope = { merchantUserId?: number; bankAccountId?: number | null }
+type Destination = { fixedBankAccountId?: number; routingKey?: string }
 
 export function smsCredentialsReady(source: { bankCode: string; templateJson: string; secretCiphertext: string }) {
   try {
@@ -29,7 +32,7 @@ export function matchesFrozenSms(row: { sourceTypes: string; sourceBindings: str
   } catch { return false }
 }
 
-export async function baleCollectionContext(tx: Prisma.TransactionClient, gatewayId?: number, proposedPolicy?: BaleCollectionPolicy, merchant?: MerchantScope) {
+export async function baleCollectionContext(tx: Prisma.TransactionClient, gatewayId?: number, proposedPolicy?: BaleCollectionPolicy, merchant?: MerchantScope, destination: Destination = {}) {
   const settings = await paySettings.read(tx)
   const policy = proposedPolicy ?? settings.bale
   const smsEnabled = (await tx.setting.findUnique({ where: { key: 'publicApiEnabled' } }))?.value === 'true'
@@ -39,27 +42,44 @@ export async function baleCollectionContext(tx: Prisma.TransactionClient, gatewa
   const config = autoTransferConfig(gateway?.config)
   if (!gateway?.active || !['MOBOCOM_PAY','CARD_TRANSFER'].includes(gateway.provider) || (!merchant && !config.autoVerify))
     throw new PayError('درگاه باید به حساب اختصاصی پیامک متصل باشد', 503)
-  const bank = config.autoBankAccountId && config.autoVerify
-    ? await tx.bankAccount.findFirst({ where: { id: config.autoBankAccountId, active: true, collectionUse: 'MOBOCOM_PAY' } })
-    : merchant?.bankAccountId
-      ? await tx.bankAccount.findFirst({ where: { id: merchant.bankAccountId, active: true, collectionUse: 'GENERAL' } })
-      : merchant ? await payCollectionBank(tx, settings.bankAccountIds) : null
-  if (!bank) throw new PayError('برای کارت‌به‌کارت یک حساب مقصد فعال و قابل نمایش لازم است', 503)
-  const display = bank.collectionUse === 'MOBOCOM_PAY' ? config.autoDisplay : {
-    ...transferDisplayDefaults(), cardNumber: Boolean(bank.cardNumber), iban: !bank.cardNumber && Boolean(bank.sheba),
-    bankName: true, holderName: true,
-  }
-  if (!(display.cardNumber && bank.cardNumber || display.accountNumber && bank.accountNumber || display.iban && bank.sheba)) throw new PayError('شمارهٔ مقصد قابل نمایش را در تنظیمات درگاه و حساب بانکی کامل کنید', 503)
-  const configured = smsEnabled && bank.collectionUse === 'MOBOCOM_PAY'
-    ? await tx.paySmsSource.findMany({ where: { bankAccountId: bank.id, active: true, verified: true }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] })
+  const ids = config.autoBankAccountId ? [config.autoBankAccountId] : settings.bankAccountIds
+  const allowed = destination.fixedBankAccountId
+    ? ids.filter(id => id === destination.fixedBankAccountId) : ids
+  const fallback = !config.autoVerify && merchant
+    ? destination.fixedBankAccountId || merchant.bankAccountId
+      ? await tx.bankAccount.findFirst({ where: { id: destination.fixedBankAccountId || merchant.bankAccountId!, active: true, collectionUse: 'GENERAL' } })
+      : await payCollectionBank(tx, settings.bankAccountIds)
+    : null
+  const banks = config.autoVerify
+    ? await tx.bankAccount.findMany({ where: { id: { in: allowed }, active: true, ...(!merchant && { collectionUse: 'MOBOCOM_PAY' }) }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] })
+    : fallback ? [fallback] : []
+  const configured = config.autoVerify && smsEnabled && banks.length
+    ? await tx.paySmsSource.findMany({ where: { bankAccountId: { in: banks.map(row => row.id) }, active: true, verified: true }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] })
     : []
-  const sms = configured.filter(smsCredentialsReady)
-  const smsOwners = await Promise.all(sms.map(source => sourceOwner(source.ownerUserId, tx)))
-  const owner = smsOwners.find(Boolean) ?? (merchant?.merchantUserId
+  const sources = await Promise.all(configured.filter(smsCredentialsReady).map(async source => ({ source, owner: await sourceOwner(source.ownerUserId, tx) })))
+  const candidates = banks.flatMap(bank => {
+    const display = config.autoVerify ? config.autoDisplay : {
+      ...transferDisplayDefaults(), cardNumber: Boolean(bank.cardNumber), accountNumber: !bank.cardNumber && !bank.sheba && Boolean(bank.accountNumber),
+      iban: !bank.cardNumber && Boolean(bank.sheba), bankName: true, holderName: true,
+    }
+    if (!(display.cardNumber && bank.cardNumber || display.accountNumber && bank.accountNumber || display.iban && bank.sheba)) return []
+    const needsAccount = bank.collectionUse === 'GENERAL' || ids.length > 1
+    const valid = sources.filter(({ source, owner }) => {
+      if (!owner || source.bankAccountId !== bank.id) return false
+      if (!needsAccount) return true
+      return Boolean(smsAccountDigits(bank.accountNumber) && smsSourceConfig(JSON.parse(source.templateJson)).template.creditTemplate.includes('{account}'))
+    })
+    return [{ bank, display, sms: valid.map(item => item.source), owner: valid[0]?.owner }]
+  })
+  const automatic = candidates.filter(candidate => candidate.sms.length > 0)
+  const pool = automatic.length || !merchant ? automatic : candidates
+  if (!pool.length) throw new PayError(banks.length && !merchant ? 'منبع پیامک معتبر و تأییدشده برای حساب‌های دریافت آماده نیست' : 'برای کارت‌به‌کارت یک حساب مقصد فعال و قابل نمایش لازم است', 503)
+  const offset = destination.routingKey ? createHash('sha256').update(destination.routingKey).digest().readUInt32BE() % pool.length : 0
+  const choice = pool[offset]
+  const owner = choice.owner ?? (merchant?.merchantUserId
     ? await tx.user.findUnique({ where: { id: merchant.merchantUserId }, select: { id: true, email: true } })
     : null)
-  if (!owner && !merchant) throw new PayError('منبع پیامک معتبر و تأییدشده برای این حساب آماده نیست', 503)
-  return { sms: sms.filter((_, index) => smsOwners[index]), sourceTypes: config.autoSources, policy, settings, owner, bank, display }
+  return { ...choice, sourceTypes: config.autoSources, policy, settings, owner }
 }
 export async function baleGatewayReady(reader?: Prisma.TransactionClient, gatewayId?: number, proposedPolicy?: BaleCollectionPolicy, checkout: 'site' | 'pay' = 'site'): Promise<boolean> {
   const merchant = checkout === 'pay' ? {} : undefined

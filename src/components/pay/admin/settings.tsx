@@ -32,6 +32,7 @@ export default function Settings({
   error: string;
 }) {
   const [feeError, setFeeError] = useState("");
+  const selectedAccounts = new Set(settings.bankAccountIds);
   useEffect(() => {
     const target = location.hash.slice(1);
     if (target.startsWith("pay-") || target === "sms-forwarder-guide-title") {
@@ -85,18 +86,19 @@ export default function Settings({
         />
       </Field>
       <fieldset>
-        <legend>حساب‌های بانکی</legend>
+        <legend>کارت‌ها و حساب‌های مقصد دریافت</legend>
+        <p className={s.muted}>چند حساب فعال را انتخاب کنید. برای هر حساب، منبع پیامک جداگانه ثبت کنید تا واریزهای همان حساب تطبیق داده شوند.</p>
         {data.bankAccounts.map((a) => (
           <label key={a.id} className={s.row}>
             <span>
               {a.title} · {a.bankName} · {a.cardNumber}
               {!a.active && " (غیرفعال)"}
- {a.collectionUse === 'MOBOCOM_PAY' && ' · اختصاصی درگاه موبوکام؛ خارج از روش‌های دستی'}
+              {a.collectionUse === 'MOBOCOM_PAY' && ' · حساب اختصاصی'}
             </span>
             <input
               type="checkbox"
- disabled={a.collectionUse === 'MOBOCOM_PAY'}
- checked={a.collectionUse !== 'MOBOCOM_PAY' && settings.bankAccountIds.includes(a.id)}
+              disabled={!a.active && !selectedAccounts.has(a.id)}
+              checked={selectedAccounts.has(a.id)}
               onChange={(e) =>
                 update({
                   bankAccountIds: e.target.checked
@@ -143,7 +145,7 @@ export default function Settings({
  <fieldset id="pay-sms-policy" className={`${s.stack} ${feeStyle.group}`}>
  <legend>کارت‌به‌کارت هوشمند</legend>
  <label className={s.check}><input type="checkbox" checked={settings.bale.enabled} onChange={(e) => update({ bale: { ...settings.bale, enabled: e.target.checked } })} /> مبلغ یکتای کارت‌به‌کارت و تأیید خودکار با پیامک</label>
- <p className={s.muted}>با فعال کردن این گزینه، مبلغ واریز هر فاکتور کارت‌به‌کارت تازه یکتا می‌شود. اگر حساب اختصاصی تعیین نشده باشد، کارت‌به‌کارت از حساب عمومی فعال استفاده می‌کند. رسید در هر حالت لازم است و بدون منبع معتبر پیامک، مدیر آن را دستی تأیید می‌کند.</p>
+ <p className={s.muted}>مبلغ واریز هر فاکتور تازه یکتا می‌شود و رقم آخر آن صفر است. رسید در هر حالت لازم است. اگر پیامک معتبر نرسد، مدیر می‌تواند رسید را دستی بررسی کند.</p>
  <div className={layout.guideIndex}><Link className={layout.guideLink} href="/admin/gateways">تنظیم حساب مقصد درگاه</Link><a className={layout.guideLink} href="#pay-sms-sources">مدیریت منبع پیامک</a></div>
  <details className={feeStyle.progressive}>
  <summary>بازهٔ مبلغ تشخیص و تنظیمات سایر فاکتورهای سایت</summary>

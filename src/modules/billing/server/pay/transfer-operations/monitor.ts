@@ -37,7 +37,7 @@ export function transferMonitor(actor: PayActor): Promise<TransferMonitor> {
     const sources: TransferMonitor['sources'] = []
     const sourceView = (id: string, label: string, ready: boolean, observation?: Observed) => ({ id, label, type: 'SMS' as const, ready, observed: Boolean(observation && observation.last.getTime() >= now.getTime() - 900000), lastReceivedAt: observation?.last.toISOString() || null, notices: Number(observation?.count || 0n), rejected: Number(observation?.rejected || 0n), p95DeliveryMs: observation?.p95 === null || observation?.p95 === undefined ? null : Math.round(observation.p95) })
     for (const s of sms) {
-      sources.push(sourceView(s.id, s.label, Boolean(enabled && s.active && s.verified && s.bankAccount.active && s.bankAccount.collectionUse === 'MOBOCOM_PAY' && smsCredentialsReady(s) && await sourceOwner(s.ownerUserId, tx)), observations.find(o => o.smsSourceId === s.id && o.instanceId === createHash('sha256').update(`${s.id}:${s.version}`).digest('hex'))))
+      sources.push(sourceView(s.id, s.label, Boolean(enabled && s.active && s.verified && s.bankAccount.active && smsCredentialsReady(s) && await sourceOwner(s.ownerUserId, tx)), observations.find(o => o.smsSourceId === s.id && o.instanceId === createHash('sha256').update(`${s.id}:${s.version}`).digest('hex'))))
     }
     const pools = []
     for (const p of principals) {

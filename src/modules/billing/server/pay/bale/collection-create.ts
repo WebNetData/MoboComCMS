@@ -22,8 +22,9 @@ export async function createBaleCollectionInTransaction(tx: Prisma.TransactionCl
     if (user?.status !== 'ACTIVE' || await globalAuthenticationDenied(invoice.userId, now, tx)) throw new PayError('حساب پرداخت‌کننده در دسترس نیست', 403)
   }
   const pay = invoice.payCollection
-  const context = await baleCollectionContext(tx, gatewayId, undefined, pay ? { merchantUserId: pay.merchant.userId, bankAccountId: pay.bankAccountId } : undefined)
+  const context = await baleCollectionContext(tx, gatewayId, undefined, pay ? { merchantUserId: pay.merchant.userId, bankAccountId: pay.bankAccountId } : undefined, { routingKey: invoice.number })
   const { bank, owner, policy } = context
+  await tx.$queryRaw(Prisma.sql`SELECT id FROM "BankAccount" WHERE id = ${bank.id} FOR SHARE`)
   if (!owner) throw new PayError('مسئول درخواست پرداخت پیدا نشد', 409)
   if ((!pay || bank.collectionUse === 'MOBOCOM_PAY' || gateway.provider === 'MOBOCOM_PAY') && (gateway.feeBps !== 0 || gateway.feePercent !== 0))
     throw new PayError('کارمزد این روش از تنظیمات تطبیق بانکی تعیین می‌شود؛ ردیف درگاه را با کارمزد درصدی صفر ذخیره کنید', 409)

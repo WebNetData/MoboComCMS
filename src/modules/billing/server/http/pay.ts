@@ -272,7 +272,7 @@ export async function payAdminHttp(req: NextRequest, context: { params: Promise<
           throw new PayError('ابتدا یک درگاه فعال سازگار با پرداخت ریالی تنظیم کنید', 409)
         if (
           next.bankAccountIds.length &&
-          (await tx.bankAccount.count({ where: { id: { in: next.bankAccountIds }, active: true, collectionUse: 'GENERAL' } })) !==
+          (await tx.bankAccount.count({ where: { id: { in: next.bankAccountIds }, active: true } })) !==
             next.bankAccountIds.length
         )
           throw new PayError('حساب بانکی فعال نیست', 409)

@@ -1865,6 +1865,12 @@ Focused extraction of exactly validated production save/collision/idempotency co
 ## Operator-confirmed Chat bridge — 2026-11-09
 
 Operator confirmed0.6.7 completes successfully. Timeout is no longer reported; fresh first-request routing works without manual recovery. PR386 clean-slug server code is merged; the operator explicitly confirms only the browser extension was upgraded, so VPS web code/build still needs applying. Existing stored URLs remain. Main incorporated without runtime changes; prior owner workstate bytes preserved. PR385 is ready for owner review/merge. Actual controlled browser/six host regressions/security/ZIP evidence and Docker/Linux limitation remain documented in docs/agent/handoffs/AI_CHAT_AGENT_RELIABILITY.md. No new tests, container, hosted workflow, release build or deployment.
+# Pay multi-card automatic transfers — 2026-11-28
+
+Continue `.mobocom/pay-private-api-access` on
+`fix/pay-multi-card-auto-transfer`, based on `31de50f0`.
+[Configuration and evidence](../docs/agent/handoffs/MOBOCOM_PAY.md#multi-card-sms-confirmation--2026-11-28).
+
 # Pay, expert orders and Cloud renewal operations — 2026-11-28
 
 Continue `.mobocom/pay-private-api-access` on

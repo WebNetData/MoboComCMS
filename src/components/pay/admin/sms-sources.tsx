@@ -12,7 +12,7 @@ type Template = { bankCode: string; sender: string; creditTemplate: string; debi
 type Format = 'FORWARDER_V1' | 'EXTENDED_V1'
 type Source = { id: string; version: number; label: string; bankCode: string; bankAccountId: number; template: Template | null; format: Format | null; verified: boolean; active: boolean; canEdit: boolean }
 type SavedSource = Pick<Source, 'id' | 'bankCode'> & { format: Format }
-type Bank = { id: number; title?: string; bankName: string; active: boolean; collectionUse: string }
+type Bank = { id: number; title?: string; bankName: string; active: boolean; collectionUse: string; cardNumber?: string }
 const blank: Template = { bankCode: '', sender: '', creditTemplate: '', debitTemplate: '', unit: 'IRR', calendar: 'JALALI' }
 
 function SmsTemplateTest({ template }: { template: Template }) {
@@ -38,8 +38,7 @@ export default function SmsSources({ bankAccounts }: { bankAccounts: Bank[] }) {
   const [origin, setOrigin] = useState('')
   const [copyStatus, setCopyStatus] = useState('')
   const [saveStatus, setSaveStatus] = useState('')
-  const dedicatedAccounts = bankAccounts.filter(account => account.collectionUse === 'MOBOCOM_PAY')
-  const canCreate = dedicatedAccounts.some(account => account.active)
+  const canCreate = bankAccounts.some(account => account.active)
   const load = useCallback(async () => { try { const result = await api<{ items: Source[]; presets: Template[] }>('/api/admin/mobocom-pay/sms-sources'); setItems(result.items); setPresets(result.presets); setError('') } catch (e) { setError(e instanceof Error ? e.message : 'دریافت منابع پیامک ناموفق بود') } }, [])
   useEffect(() => { void load() }, [load])
   useEffect(() => { if (window.location.protocol === 'https:') setOrigin(window.location.origin) }, [])
@@ -107,8 +106,9 @@ export default function SmsSources({ bankAccounts }: { bankAccounts: Bank[] }) {
       <Field label="قالب دریافت"><select value={format} onChange={e => setFormat(e.target.value as Format)}><option value="FORWARDER_V1">SMS Forwarder سه‌فیلدی</option><option value="EXTENDED_V1">چهار‌فیلدی با زمان/شناسه</option></select></Field>
       {format === 'FORWARDER_V1' && <p className={s.muted}>فرستندهٔ بانک را در برنامه فیلتر کنید و فقط پیام‌های تازه را بفرستید. برای خرید USDT با نرخ قفل‌شده، قالب زمان‌دار یا بررسی دستی رسید لازم است. <a href="https://play.google.com/store/apps/details?id=com.frzinapps.smsforward" target="_blank" rel="noreferrer">دریافت SMS Forwarder از Google Play</a></p>}
       <Field label="نام منبع"><input required maxLength={80} value={label} onChange={e => setLabel(e.target.value)} /></Field>
-      <Field label="حساب اختصاصی"><select required disabled={!!selected} value={bankAccountId} onChange={e => setBankAccountId(e.target.value)}><option value="">انتخاب حساب</option>{dedicatedAccounts.filter(a => a.active || String(a.id) === bankAccountId).map(a => <option key={a.id} value={a.id} disabled={!a.active}>{a.title && a.title !== a.bankName ? `${a.title} · ` : ''}{a.bankName}{!a.active && ' (غیرفعال)'}</option>)}</select></Field>
-      {!canCreate && !selected && <p className={s.notice}>برای ثبت منبع، در <Link href="/admin/bank-accounts">حساب‌های بانکی</Link> یک حساب فعال با کاربرد «اختصاصی درگاه موبوکام» بسازید.</p>}
+      <Field label="کارت یا حساب مقصد پیامک"><select required disabled={!!selected} value={bankAccountId} onChange={e => setBankAccountId(e.target.value)}><option value="">انتخاب حساب</option>{bankAccounts.filter(a => a.active || String(a.id) === bankAccountId).map(a => <option key={a.id} value={a.id} disabled={!a.active}>{a.title && a.title !== a.bankName ? `${a.title} · ` : ''}{a.bankName} · {a.cardNumber ? `کارت …${a.cardNumber.slice(-4)}` : `حساب ${a.id}`}{!a.active && ' (غیرفعال)'}</option>)}</select></Field>
+      {!canCreate && !selected && <p className={s.notice}>برای ثبت منبع، یک حساب فعال در <Link href="/admin/bank-accounts">حساب‌های بانکی</Link> ثبت کنید.</p>}
+      {bankAccounts.some(account => String(account.id) === bankAccountId && account.collectionUse === 'GENERAL') && <p className={s.muted}>شمارهٔ حساب بانکی را در رکورد همین کارت ثبت کنید. قالب واریز کارت عمومی باید از <code>{'{account}'}</code> برای تشخیص حساب استفاده کند.</p>}
       <Field label="نمونهٔ قالب"><select value="" onChange={e => { if (e.target.value) { const p = presets[Number(e.target.value)]; if (p) setTemplate({ ...p }) } }}><option value="">انتخاب نمونه</option>{presets.map((p, i) => <option key={p.bankCode} value={i}>{p.bankCode}</option>)}</select></Field>
       {([['bankCode', 'شناسهٔ بانک'], ['sender', 'فرستندهٔ دقیق'], ['creditTemplate', 'قالب واریز'], ['debitTemplate', 'قالب برداشت (اختیاری)']] as const).map(([key, title]) => <Field key={key} label={title}><input required={key !== 'debitTemplate'} value={template[key]} onChange={e => setTemplate({ ...template, [key]: e.target.value })} /></Field>)}
       <p className={s.muted}>در قالب از {'{amount}'} و در صورت نیاز {'{account}'}، {'{reference}'}، {'{date}'}، {'{time}'} و {'{ignore}'} استفاده کنید. نمونه‌ها پیش از فعال‌سازی باید بررسی شوند.</p>

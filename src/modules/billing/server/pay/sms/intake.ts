@@ -2,7 +2,8 @@ import { createHash, randomUUID, timingSafeEqual } from 'node:crypto'
 import { isModuleEnabled } from '@/extensions/server/modules'
 import { uniqueSmsJson } from '@/modules/billing/domain/pay-sms-json'
 import { PayError } from '@/modules/billing/domain/pay'
-import { parseSmsAmount } from '@/modules/billing/domain/pay-sms-template'
+import { normalizedSmsText, parseSmsTemplate } from '@/modules/billing/domain/pay-sms-template'
+import { matchesSmsAccount } from './account'
 import { smsSourceConfig, type SmsSourceFormat } from '@/modules/billing/domain/pay-sms-source'
 import { decryptPanelCredential } from '@/modules/providers/server/panel-credentials'
 import { auditSystemStrict } from '@/platform/audit/server'
@@ -34,7 +35,7 @@ export async function receiveAuthenticatedSms(input: SmsInput) {
     const secret = decryptPanelCredential(source.secretCiphertext), expected = Buffer.from(secret), supplied = Buffer.from(bearer)
     if (expected.length !== supplied.length || !timingSafeEqual(expected, supplied)) throw new PayError('کلید منبع معتبر نیست', 401)
     const owner = await sourceOwner(source.ownerUserId, tx)
-    if (!owner || !source.bankAccount.active || source.bankAccount.collectionUse !== 'MOBOCOM_PAY') throw new PayError('مجوز منبع معتبر نیست', 403)
+    if (!owner || !source.bankAccount.active) throw new PayError('مجوز منبع معتبر نیست', 403)
     let config
     try { config = smsSourceConfig(JSON.parse(source.templateJson)) } catch { throw new PayError('قالب منبع معتبر نیست', 503) }
     if (config.format !== mode) throw new PayError('قالب ارسال منبع با این مسیر مطابقت ندارد', 422, 'SMS_FORMAT_MISMATCH')
@@ -51,10 +52,30 @@ export async function receiveAuthenticatedSms(input: SmsInput) {
     if (sentAt.getTime() > now.getTime() + 60000 || sentAt.getTime() < now.getTime() - 300000) throw new PayError('زمان دریافت گوشی معتبر نیست', 422)
     if (await tx.payBaleNotice.count({ where: { smsSourceId: source.id, receivedAt: { gte: new Date(now.getTime() - 86400000) } } }) >= 10000) throw new PayError('سقف روزانهٔ پیامک پر شده است', 429)
     if (mode === 'EXTENDED_V1' && input.sender?.trim().toLowerCase() !== template.sender.trim().toLowerCase()) throw new PayError('فرستندهٔ پیامک مطابقت ندارد', 403)
-    const parsed = parseSmsAmount(template, message), credit = parsed.ok && parsed.direction === 'CREDIT'
+    let parsed = parseSmsTemplate(template, message)
+    if (parsed.ok && (source.bankAccount.collectionUse === 'GENERAL' || parsed.notice.accountNumber)) {
+      const account = parsed.notice.accountNumber
+      const other = account ? await tx.paySmsSource.findMany({
+        where: { bankCode: source.bankCode, bankAccountId: { not: source.bankAccountId }, active: true, verified: true },
+        select: { bankAccount: { select: { accountNumber: true, active: true } } },
+      }) : []
+      if (!account || !matchesSmsAccount(source.bankAccount.accountNumber, account) || other.some(row => row.bankAccount.active && matchesSmsAccount(row.bankAccount.accountNumber, account))) {
+        parsed = { ok: false, code: 'ACCOUNT_MISMATCH' }
+      }
+    }
+    const credit = parsed.ok && parsed.notice.direction === 'CREDIT'
     const code = mode === 'FORWARDER_V1' ? 'SMS_FORWARDER_' + (credit ? 'CREDIT' : parsed.ok ? 'DEBIT' : parsed.code) : credit ? 'SMS_CREDIT' : parsed.ok ? 'SMS_DEBIT' : parsed.code
+    const bankFingerprint = credit && source.bankAccount.collectionUse === 'GENERAL'
+      ? hash(`pay-account-sms:${source.bankAccountId}:${normalizedSmsText(message)}`) : null
+    if (bankFingerprint) {
+      const duplicate = await tx.payBaleNotice.findUnique({ where: { bankFingerprint } })
+      if (duplicate) {
+        await queueTransferMatch(tx, duplicate)
+        return { received: true as const, id: duplicate.id, status: duplicate.status, duplicate: true }
+      }
+    }
     // These IDs are internal deduplication identifiers, not bank-provided evidence.
-    const row = await tx.payBaleNotice.create({ data: { id: randomUUID(), instanceId, sourceAccountId: String(source.bankAccountId), sourceEventId, messageId: (BigInt('0x' + hash(messageId).slice(0, 15)) + 1n).toString(), bankPeerId: '1', bankAccountId: source.bankAccountId, payloadHash, status: credit ? 'ORIGINAL_TRANSFER' : parsed.ok ? 'IGNORED' : 'REJECTED', code, kind: credit ? 'CARD_TRANSFER' : 'UNKNOWN', direction: parsed.ok ? parsed.direction : '', amountMinor: parsed.ok ? BigInt(parsed.amountRial) : null, occurredFrom: null, occurredBefore: null, transferReference: '', sourceSentAt: sentAt, receivedAt: now, sourceType: 'SMS', bankCode: source.bankCode, smsSourceId: source.id } })
+    const row = await tx.payBaleNotice.create({ data: { id: randomUUID(), instanceId, sourceAccountId: String(source.bankAccountId), sourceEventId, messageId: (BigInt('0x' + hash(messageId).slice(0, 15)) + 1n).toString(), bankPeerId: '1', bankAccountId: source.bankAccountId, payloadHash, bankFingerprint, status: credit ? 'ORIGINAL_TRANSFER' : parsed.ok ? 'IGNORED' : 'REJECTED', code, kind: credit ? 'CARD_TRANSFER' : 'UNKNOWN', direction: parsed.ok ? parsed.notice.direction : '', amountMinor: parsed.ok ? BigInt(parsed.notice.amountRial) : null, occurredFrom: null, occurredBefore: null, transferReference: '', sourceSentAt: sentAt, receivedAt: now, sourceType: 'SMS', bankCode: source.bankCode, smsSourceId: source.id } })
     await auditSystemStrict({ actor: owner, action: 'mobocom-pay.sms.received', targetType: 'mobocom-pay', targetId: row.id, metadata: { sourceId: id, status: row.status, code: row.code, format: mode, timeBasis: mode === 'FORWARDER_V1' ? 'SERVER_RECEIPT' : 'PHONE_RECEIPT' } }, tx)
     await queueTransferMatch(tx,row)
     return { received: true as const, id: row.id, status: row.status, duplicate: false }

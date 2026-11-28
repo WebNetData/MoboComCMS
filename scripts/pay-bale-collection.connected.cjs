@@ -31,7 +31,7 @@ const put = (key, value) => prisma.setting.upsert({ where: { key }, create: { ke
 const status = n => error => error.status === n
 const extraSmsSources = []
 let bank, secondBank, gateway, smsGateway, manualGateway, smsSource, secondSmsSource, payMerchant, payTerminal, merchantPayment, savedUsdtRate, rateCaptured = false
-let generalBank, generalGateway
+let generalBank, generalGateway, secondGeneralBank
 const secret = 's'.repeat(43)
 const template = { bankCode: 'fixture_bank', sender: 'fixture', creditTemplate: 'CREDIT {amount}', debitTemplate: 'DEBIT {amount}', unit: 'IRR', calendar: 'GREGORIAN' }
 const gatewayConfig = bankId => JSON.stringify({ autoVerify: true, autoSources: ['SMS'], autoBankAccountId: bankId })
@@ -693,7 +693,7 @@ async function main() { try {
     await prisma.user.update({ where: { id: merchantUser.id }, data: { role: merchantUser.role, roleId: null } })
     await put(keys[1], fallbackPolicy.value)
   }
-  generalBank = await prisma.bankAccount.create({ data: { bankName: stamp, holderName: stamp, cardNumber: '7777777777777777', active: true, collectionUse: 'GENERAL' } })
+  generalBank = await prisma.bankAccount.create({ data: { bankName: stamp, holderName: stamp, accountNumber: '59001', cardNumber: '7777777777777777', active: true, collectionUse: 'GENERAL' } })
   generalGateway = await prisma.gateway.create({ data: { name: stamp + '-general', provider: 'CARD_TRANSFER', active: true, fiat: 'IRR' } })
   await put(keys[1], JSON.stringify({ ...activePolicy, bankAccountIds: [], bale: { ...activePolicy.bale, minAdjustmentRial: '10', maxAdjustmentRial: '100' } }))
   const manualOnly = []
@@ -755,6 +755,54 @@ async function main() { try {
   const replayPreview = await preview(header + row)
   assert.deepEqual(replayPreview.suggestions, [])
   assert.equal(replayPreview.alreadyUsed, 1)
+  secondGeneralBank = await prisma.bankAccount.create({ data: { bankName: stamp, holderName: stamp, accountNumber: '59002', cardNumber: '7777777777777797', active: true, collectionUse: 'GENERAL' } })
+  const melli = load('src/modules/billing/domain/pay-sms-template.ts').smsBankPresets.find(preset => preset.bankCode === 'bankmeli')
+  const sources = await Promise.all([generalBank, secondGeneralBank].map(async account => {
+    const saved = await pay.saveSmsSource(admin, { label: stamp + account.id, bankAccountId: account.id, template: melli, format: 'FORWARDER_V1', verified: true, active: true })
+    extraSmsSources.push(saved.source.id)
+    return { ...saved, account }
+  }))
+  await put(keys[1], JSON.stringify({ ...activePolicy, bankAccountIds: [generalBank.id, secondGeneralBank.id], bale: { ...activePolicy.bale, minAdjustmentRial: '10', maxAdjustmentRial: '100' } }))
+  await prisma.gateway.update({ where: { id: generalGateway.id }, data: { config: gatewayConfig(null) } })
+  const { baleCollectionContext } = load('src/modules/billing/server/pay/bale/collection-context.ts')
+  const destinations = await prisma.$transaction(async tx => {
+    const ids = new Set()
+    for (let index = 0; index < 12 && ids.size < 2; index++) {
+      const result = await baleCollectionContext(tx, generalGateway.id, undefined, { merchantUserId: users[1].id }, { routingKey: String(index) })
+      ids.add(result.bank.id)
+    }
+    return [...ids].sort()
+  })
+  assert.deepEqual(destinations, [generalBank.id, secondGeneralBank.id].sort())
+  const automatic = await pay.createPayPayment(merchantActor, { terminalId: payTerminal.id, externalId: stamp + '-pool', amountRial: '19100000', gatewayRef: 'db:' + generalGateway.id }, randomUUID())
+  merchantPayments.push(automatic.id)
+  const autoSecret = randomBytes(32).toString('base64url'), autoCookie = `pay_payer_${automatic.id}=${autoSecret}`
+  await prisma.payPayment.updateMany({ where: { id: automatic.id, payerSessionHash: '' }, data: { payerSessionHash: createHash('sha256').update(autoSecret).digest('hex'), payerPhoneCiphertext: encryptPanelCredential('+989120009999'), payerPhoneLast4: '9999', payerVerifiedAt: new Date(now), payerSessionExpiresAt: new Date(now + 3600000) } })
+  const autoReq = new NextRequest('https://mobocom.invalid/pay/' + automatic.id, { headers: { cookie: autoCookie } })
+  const autoStarted = await pay.startPayGateway(autoReq, automatic.id, { gatewayRef: 'db:' + generalGateway.id })
+  invoices.push(autoStarted.invoiceId)
+  const quoteId = new URL(autoStarted.paymentUrl).pathname.split('/').at(-1)
+  const autoQuote = await changeBaleCheckout(quoteId, autoReq, 'accept')
+  const poolRow = await prisma.payBaleCollection.findUniqueOrThrow({ where: { id: quoteId } })
+  const correct = sources.find(item => item.account.id === poolRow.bankAccountId)
+  const wrong = sources.find(item => item.account.id !== poolRow.bankAccountId)
+  assert.equal(autoQuote.bank.cardNumber, correct.account.cardNumber)
+  assert.equal(BigInt(autoQuote.collectedRial) % 10n, 0n)
+  const noticeText = `بانك ملي ايران\nانتقالي:${BigInt(autoQuote.collectedRial).toLocaleString('en-US')}+\nحساب:${correct.account.accountNumber}\nمانده:10,100,512,660\n0828-18:40`
+  const poolSms = async source => {
+    const req = new NextRequest('https://mobocom.invalid/api/payment/mobocom-pay/sms-forwarder/' + source.source.id, { method: 'POST', headers: { origin: 'https://mobocom.invalid', 'content-type': 'application/json' }, body: JSON.stringify({ sms: noticeText, bank: 'bankmeli', token: source.secret }) })
+    const response = await smsForwarderHttp(req, { params: Promise.resolve({ id: source.source.id }) })
+    assert.equal(response.status, 200)
+    return (await response.json()).data
+  }
+  now += 3000
+  assert.equal((await poolSms(wrong)).status, 'REJECTED')
+  assert.equal((await poolSms(correct)).receiptRequired, true)
+  assert.equal((await upload(quoteId, autoQuote.collectedRial, autoCookie)).status, 'PAID')
+  await settledMerchantState({ id: automatic.id, req: autoReq }, quoteId, 'AUTO')
+  assert.equal((await poolSms(correct)).duplicate, true)
+  const bankDestination = await prisma.bankAccount.findUniqueOrThrow({ where: { id: correct.account.id } })
+  await assert.rejects(prisma.bankAccount.update({ where: { id: bankDestination.id }, data: { accountNumber: '12345678' } }))
   await put(keys[2],'{"enabled":false,"settings":{}}'); await assert.rejects(operations.transferMonitor(admin),status(404)); await assert.rejects(command(overNotice.id,'dismiss',1),status(404)); await put(keys[2],'{"enabled":true,"settings":{}}')
   console.log('Bale collection + operations desk assertions passed: exact-once receipts/auto/reviewer race, late admission, mismatch refusal, version/module/source denial, pool and latency projections')
 } finally {
@@ -764,7 +812,7 @@ async function main() { try {
   finally {
     // Extra source rows are removed after all their notices/collections below.
     const receipts = await prisma.paymentReceipt.findMany({ where: { invoiceId: { in: invoices } }, select: { id: true, image: true } })
-    if (bank) { const ids = [bank.id, secondBank?.id].filter(Boolean); await prisma.payBaleNotice.deleteMany({ where: { bankAccountId: { in: ids }, duplicateOfId: { not: null } } }); await prisma.payBaleNotice.deleteMany({ where: { bankAccountId: { in: ids } } }) }
+    if (bank) { const ids = [bank.id, secondBank?.id, generalBank?.id, secondGeneralBank?.id].filter(Boolean); await prisma.payBaleNotice.deleteMany({ where: { bankAccountId: { in: ids }, duplicateOfId: { not: null } } }); await prisma.payBaleNotice.deleteMany({ where: { bankAccountId: { in: ids } } }) }
     await prisma.paymentReceipt.deleteMany({ where: { id: { in: receipts.map(row => row.id) } } }); for (const row of receipts) if (/^[0-9a-f-]{36}\.(png|jpg|webp)$/.test(row.image)) await unlink(join(process.cwd(), 'storage', 'receipts', row.image)).catch(() => {})
     const deliveries = await prisma.payBotDelivery.findMany({ where: { paymentId: { in: merchantPayments } }, select: { id: true } })
     if (deliveries.length) await prisma.backgroundJob.deleteMany({ where: { kind: 'pay.bot-delivery', OR: deliveries.map(({ id }) => ({ payload: { contains: id } })) } })
@@ -779,6 +827,7 @@ async function main() { try {
     if (manualGateway) await prisma.gateway.deleteMany({ where: { id: manualGateway.id } })
     if (generalGateway) await prisma.gateway.deleteMany({ where: { id: generalGateway.id } })
     if (generalBank) await prisma.bankAccount.deleteMany({ where: { id: generalBank.id } })
+    if (secondGeneralBank) await prisma.bankAccount.deleteMany({ where: { id: secondGeneralBank.id } })
     if (rateCaptured && savedUsdtRate) await prisma.currencyRate.upsert({ where: { code: 'USDT' }, create: savedUsdtRate, update: savedUsdtRate }); else if (rateCaptured) await prisma.currencyRate.deleteMany({ where: { code: 'USDT' } })
     for (const [key, old] of snapshots) if (old) await put(key, old.value); else await prisma.setting.deleteMany({ where: { key } }); access.clearAdminPolicyCache(); await prisma.$disconnect(); global.Date = RealDate
   }
