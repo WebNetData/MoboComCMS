@@ -33,11 +33,14 @@ import {
   payList,
   payPaymentById,
   adminPayOverview,
+  adminPayPayments,
+  payFinancialReport,
   settlementView,
   merchantView,
   terminalView,
   payActor,
   payContext,
+  isPaySerializationConflict,
   bankFeedReady,
   paySettings,
   botIntegrations, saveBotIntegration, botDeliveries, recoverBotDelivery, saveBotRouting, botOperations, botOperationDetail, payGatewayOptions,
@@ -52,7 +55,7 @@ export function payHttpFailure(error: unknown) {
     return apiErr(error.message, error.status, error instanceof PayError ? error.code : 'INVALID_BODY')
   if ((error as { code?: string })?.code === 'P2002')
     return apiErr('این داده قبلاً ثبت شده است', 409, 'PAY_CONFLICT')
-  if ((error as { code?: string })?.code === 'P2034')
+  if (isPaySerializationConflict(error))
     return apiErr('درخواست هم‌زمان تغییر کرده؛ با همان کلید تکرار کنید', 409, 'PAY_RETRY')
   return apiErr('سرویس در دسترس نیست؛ کمی بعد دوباره تلاش کنید', 503, 'PAY_UNAVAILABLE')
 }
@@ -60,8 +63,8 @@ async function limited(key: string, count = 120) {
   if (!(await rateLimitStrict(key, count, 60000)).ok)
     throw new PayError('تعداد درخواست زیاد است؛ کمی بعد دوباره تلاش کنید', 429)
 }
-function csv(items: unknown[], total: number) {
-  const columns = items.length ? Object.keys(items[0] as object) : ['id']
+function csv(items: unknown[], total: number, options?: { filename: string; columns?: string[] }) {
+  const columns = options?.columns ?? (items.length ? Object.keys(items[0] as object) : ['id'])
   const cell = (v: unknown) =>
     '"' +
     (v && typeof v === 'object' ? JSON.stringify(v) : String(v ?? ''))
@@ -77,12 +80,23 @@ function csv(items: unknown[], total: number) {
   return new NextResponse(content, {
     headers: {
       'content-type': 'text/csv; charset=utf-8',
-      'content-disposition': 'attachment; filename="mobocom-pay.csv"',
+      'content-disposition': `attachment; filename="${options?.filename ?? 'mobocom-pay.csv'}"`,
       'cache-control': 'no-store',
       'x-total-count': String(total),
       'x-export-limit': '1000',
     },
   })
+}
+async function financialReportResponse(req: NextRequest, actor: Awaited<ReturnType<typeof payActor>>, scope: 'admin' | 'merchant') {
+  const params = req.nextUrl.searchParams
+  const report = await payFinancialReport(actor, scope, params)
+  if (params.get('format') === 'csv') {
+    const settlements = params.get('section') === 'settlements'
+    const rows = settlements ? report.settlements.map(row => ({ from: report.from, to: report.to, ...row })) : report.days
+    const filename = `mobocom-pay-${settlements ? 'settlements' : 'daily'}-${report.from}-${report.to}.csv`
+    return csv(rows, rows.length, { filename, ...(settlements && { columns: ['from', 'to', 'currency', 'status', 'count', 'sourceAmount'] }) })
+  }
+  return apiOk(report)
 }
 const machinePayment = (row: PayPaymentView) => row.status === 'UNDER_REVIEW' ? { ...row, status: 'PENDING' as const, reviewStatus: 'UNDER_REVIEW' as const } : row
 export async function payHttp(req: NextRequest, context: { params: Promise<{ resource: string[] }> }) {
@@ -112,6 +126,7 @@ export async function payHttp(req: NextRequest, context: { params: Promise<{ res
     }
     if (parts.length !== 1) return apiErr('پیدا نشد', 404)
     if (req.method === 'GET') {
+      if (!machine && resource === 'reports') return await financialReportResponse(req, actor, 'merchant')
       if (!machine && resource === 'bot-integrations') return apiOk({ items: await botIntegrations(actor), gateways: await payGatewayOptions() })
       if (!machine && resource === 'bot-operations') return apiOk(req.nextUrl.searchParams.get('id') ? await botOperationDetail(actor, req.nextUrl.searchParams.get('id')!) : await botOperations(actor, Object.fromEntries(req.nextUrl.searchParams)))
       if (!machine && resource === 'bot-deliveries') return apiOk({ items: await botDeliveries(actor) })
@@ -188,6 +203,8 @@ export async function payAdminHttp(req: NextRequest, context: { params: Promise<
     await limited('pay-admin:' + actor.id)
     if (req.method === 'GET') { const center = await payCenterGet(req, actor, resource, true); if (center) return center }
     if (req.method === 'GET' && resource === 'overview') return apiOk(await adminPayOverview(actor))
+    if (req.method === 'GET' && resource === 'payments') return apiOk(await adminPayPayments(actor, req.nextUrl.searchParams))
+    if (req.method === 'GET' && resource === 'reports') return await financialReportResponse(req, actor, 'admin')
     if (req.method === 'GET' && resource === 'gateway-access') return apiOk(await adminGatewayAccess(actor, req.nextUrl.searchParams.get('id')))
     if (req.method === 'GET' && resource === 'terminal-keys') return apiOk(await adminTerminalKeys(actor, req.nextUrl.searchParams.get('id')))
     if (req.method === 'GET' && resource === 'merchant-directory') return apiOk(req.nextUrl.searchParams.get('id') ? await merchantAdminDetail(actor, req.nextUrl.searchParams.get('id')!) : await merchantDirectory(actor, req.nextUrl.searchParams))
@@ -230,8 +247,7 @@ export async function payAdminHttp(req: NextRequest, context: { params: Promise<
         if (sectionSettingsRevision(before) !== expected)
           throw new PayError('تنظیمات تغییر کرده؛ صفحه را تازه کنید', 409)
         const next = normalizePaySettings(input)
-        const gateways = await listCheckoutGateways('IRR')
-        if (next.incomingEnabled && !gateways.length)
+        if (!before.incomingEnabled && next.incomingEnabled && !(await listCheckoutGateways('IRR', tx, next.bale)).length)
           throw new PayError('ابتدا یک درگاه فعال سازگار با پرداخت ریالی تنظیم کنید', 409)
         if (
           next.bankAccountIds.length &&

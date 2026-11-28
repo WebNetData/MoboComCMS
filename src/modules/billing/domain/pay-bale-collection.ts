@@ -29,6 +29,13 @@ export function bankAmountRange(principalRial: bigint, policy: BaleCollectionPol
   const capacity = first > last ? 0 : Number((last - first) / 10n + 1n)
   return { first, last, capacity }
 }
+
+/** The collected amount is a whole Toman. Split its disclosed addition without changing the stored invoice. */
+export function bankAdjustmentParts(adjustmentRial: string) {
+  const adjustment = BigInt(adjustmentRial)
+  const rounding = adjustment % 10n
+  return { detectionRial: (adjustment - rounding).toString(), roundingRial: rounding.toString() }
+}
 export const nextBaleMinute = (at: Date) => new Date((Math.floor(at.getTime() / 60000) + 1) * 60000)
 export function baleEffectiveStart(row: { validFrom: Date; acceptedAt: Date | null }): Date {
   return row.acceptedAt && row.acceptedAt > row.validFrom ? row.acceptedAt : row.validFrom
@@ -48,6 +55,7 @@ export interface BaleCheckout {
   expiresAt: string
   accepted: boolean
   receiptOnly?: boolean
+  lateReceiptAllowed?: boolean
   serverTime: string
   receipt: { id: number; status: string; createdAt: string } | null
   bank: { bankName: string; holderName: string; cardNumber: string; accountNumber: string; iban: string } | null

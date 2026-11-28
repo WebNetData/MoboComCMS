@@ -1,3 +1,41 @@
+Pay post-deadline receipt fallback for current accepted IRR checkouts
+2026-11-28: VERIFIED_LOCAL with unavailable SMS, verified payer authorization,
+manual bank-reference approval and exact-once credit.
+[Evidence](handoffs/MOBOCOM_PAY.md#receipt-fallback-when-sms-is-unavailable--2026-11-28).
+
+Pay percent fee entry and smart transfer switch 2026-11-28: VERIFIED_LOCAL
+for percentage and currency units, merchant override, initial auto-only
+activation and zero-ending checkout amounts.
+[Evidence](handoffs/MOBOCOM_PAY.md#percent-fee-fields-and-smart-transfer-switch--2026-11-28).
+
+Pay manual/SMS single financial posting 2026-11-28: VERIFIED_LOCAL for both
+arrival orders, replays, four concurrent requests and stable Wallet and report
+totals on PostgreSQL 17.
+[Evidence](handoffs/MOBOCOM_PAY.md#single-financial-posting-across-sms-and-manual-approval--2026-11-28).
+
+Pay card-transfer reliability 2026-11-28: VERIFIED_LOCAL for late SMS review,
+exact-once manual confirmation from reconciliation and continued access to
+eligible configured gateways. LIVE_PROVIDER_UNVERIFIED.
+[Evidence](handoffs/MOBOCOM_PAY.md#card-transfer-reliability-and-gateway-catalogue--2026-11-28).
+
+Pay operational workspaces and financial reports 2026-11-28: PostgreSQL
+acceptance covers source-correct fees and credit, settlement status grouping,
+merchant isolation and Admin search. Browser flows cover date filtering and CSV.
+[Evidence and limits](handoffs/MOBOCOM_PAY.md#operational-workspaces-and-financial-reporting--2026-11-28).
+
+Manual own Pay receipt approval and SMS source settings 2026-11-28 are
+VERIFIED_LOCAL. Full-access Admin receipt confirmation preserves verified
+references, exactly-once credit and Audit. SMS source creation, editing,
+validation and persisted reload pass in Edge. Live delivery remains
+LIVE_PROVIDER_UNVERIFIED.
+[Evidence and limits](handoffs/MOBOCOM_PAY.md#manual-own-receipt-approval-and-sms-forwarder-save--2026-11-28).
+
+Private account API access 2026-11-28: VERIFIED_LOCAL within browser key
+management and existing Pay machine routes. PostgreSQL checks include
+current identity, owner revocation, bot, terminal, checkout and bank SMS.
+Actual phone/bank commissioning remains a destination check.
+[Evidence and limits](handoffs/MOBOCOM_PAY.md#private-account-api-access-and-bank-sms-review--2026-11-28).
+
 Gateway access 2026-11-27: Billing's ready catalogue supports ordered
 merchant grants, narrower terminal grants, v2 discovery by terminal and amount,
 and an immutable optional gateway for each payment. Hosted checkout and the bot

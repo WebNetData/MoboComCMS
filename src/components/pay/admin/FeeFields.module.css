@@ -1,0 +1,13 @@
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 14px; }
+.field { display: grid; align-content: start; gap: 7px; min-inline-size: 0; }
+.field > label { font-size: .875rem; font-weight: 600; }
+.field small { color: color-mix(in srgb, var(--sds-color-text-default-default) 77%, var(--sds-color-background-default-default)); font-size: .75rem; line-height: 1.65; }
+.amount { display: flex; min-inline-size: 0; min-block-size: 44px; border: 1px solid var(--sds-color-border-default-default); border-radius: 9px; overflow: hidden; background: var(--sds-color-background-default-default); }
+.amount input { flex: 1; inline-size: 0; min-inline-size: 0; padding-inline: 12px; border: 0 !important; border-radius: 0 !important; font-variant-numeric: tabular-nums; }
+.amount:focus-within { outline: 2px solid var(--primary, var(--sds-color-border-brand-default)); outline-offset: 2px; }
+.amount > span { display: grid; place-items: center; min-inline-size: 48px; padding-inline: 8px; border-inline-start: 1px solid var(--sds-color-border-default-default); background: var(--sds-color-background-default-secondary); font-size: .8125rem; font-weight: 600; }
+.srOnly { position: absolute; inline-size: 1px; block-size: 1px; clip-path: inset(50%); overflow: hidden; white-space: nowrap; }
+.group { padding: clamp(12px, 1.8vw, 20px); border: 1px solid var(--sds-color-border-default-default); border-radius: 14px; min-inline-size: 0; }
+.group legend { padding-inline: 6px; font-weight: 650; }
+.progressive { margin-block-start: 10px; }
+.progressive summary { min-block-size: 44px; cursor: pointer; padding-block: 10px; font-weight: 600; }

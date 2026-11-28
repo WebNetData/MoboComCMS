@@ -1,3 +1,292 @@
+## Required receipt and invoice deadline — 2026-11-28
+
+Pay merchant card transfers require the canonical uploaded receipt for financial
+settlement. Receipt submission, SMS matching and reconciliation use the same
+invoice state and journal. A timely SMS can arrive before the receipt; upload
+stores durable rematch intent and runs the same matcher after commit. Read-only
+notice receipt and replays leave the ledger unchanged until both proofs exist.
+The provider-hosted online checkout keeps its verified provider evidence.
+
+The existing Admin payment minutes field now identifies the Pay invoice
+deadline. New automatic quotes inherit the issued payment deadline, including
+the allotted time already elapsed before choosing a method. A renewal cannot
+extend the original Pay deadline. General site invoices retain the separate
+SMS deadline. Existing quotes, wallet amounts and audit history need no
+migration. [Operator guide](../../MOBOCOM_PAY_SMS_FORWARDER.md) and
+[release notes](../../releases/1.7.29.md).
+
+## Receipt fallback when SMS is unavailable — 2026-11-28
+
+Continued `.mobocom/pay-private-api-access` on
+`fix/pay-private-api-access-2026-11-28` from `b13dc3bf`.
+An accepted, active IRR merchant quote can receive a receipt for an earlier
+transfer after the payment deadline, within the existing verified payer
+session. The same server predicate drives checkout eligibility and upload.
+Checkout withholds bank destination after expiry and separates the receipt
+action from creating a fresh quote. Renewed older requests and locked
+USDT purchases retain their former receipt rules.
+
+Uploaded evidence enters the existing receipt review queue. The manager
+verifies bank receipt and reference through the existing approval command.
+Payment, audit, wallet, and duplicate protection continue within the
+canonical invoice transaction. There is no migration.
+
+Connected PostgreSQL checks ran as a non-superuser database owner with
+automatic matching disabled and an expired quote. They cover verified
+payer scope, refusal on the older renewed quote, manual confirmation by
+the full-access owner and later SMS replay with stable money. Edge at
+390 dark and 1440 light exercised the expired checkout and keyboard receipt
+dialog. The desktop run sent a real multipart request to the local preview.
+Scoped axe, overflow, TypeScript, architecture and security checks passed.
+The work is local, and live bank/phone delivery remains a destination check.
+
+## Percent fee fields and smart transfer switch — 2026-11-28
+
+Continued `.mobocom/pay-private-api-access` on
+`fix/pay-private-api-access-2026-11-28` from `b13dc3bf`. The owner asked
+for understandable percentage, fixed and maximum fee inputs and an explicit
+automatic transfer switch with a zero-ending detection amount.
+
+- Pay defaults, merchant overrides and settlement rails share a labelled
+  percentage / fixed / maximum input. Persian decimal input converts to
+  integer basis points at submit. Fixed and maximum retain the stated
+  currency, zero maximum means no cap, and stored fee contracts and past
+  invoices keep their financial semantics.
+- The smart transfer panel uses the existing automatic SMS policy checkbox
+  with advanced limits behind a disclosure. Initial activation of receiving
+  checks the proposed SMS policy against the ready gateway catalogue within
+  the settings transaction. A configured automatic gateway can now be the
+  only active route when receiving and SMS matching are first enabled together.
+- The existing unique amount allocation uses ten-rial steps. Checkout
+  discloses the zero-ending random part separately from up to nine rial of
+  rounding for a non-aligned principal. The payable bank amount still ends in
+  zero. No migration, new API fields or financial-history rewrite are required.
+
+Edge at 1440 light and 390 dark verified invalid percentage feedback, Persian
+digits, fixed/cap save and reload, and initial automatic activation with only
+one automatic gateway. The merchant override saved through its browser form.
+An odd-principal customer checkout displayed the two adjustment parts and
+the correct final amount. Scoped axe and overflow checks passed. Five
+collection unit cases and connected collection, gateway access and settlement
+regressions passed on PostgreSQL 17. TypeScript, architecture and security
+checks passed. Deployment and live phone/bank commissioning remain open.
+
+## Single financial posting across SMS and manual approval — 2026-11-28
+
+Continued `.mobocom/pay-private-api-access` on
+`fix/pay-private-api-access-2026-11-28` from `b13dc3bf`. The owner requested
+verification of both orderings and concurrent receipt/SMS confirmation.
+
+A real four-request race initially returned HTTP 503 from an SMS request.
+PostgreSQL reported a serialization failure on the invoice lock. Pay
+transactions now retry Prisma's raw SQL representation of serialization and
+deadlock conflicts within the existing bounded policy. If attempts are
+exhausted, the HTTP adapter returns the existing retryable conflict response.
+The existing journal and Wallet state claims remain authoritative.
+
+Connected merchant fixtures use the SMS Forwarder HTTP handler and canonical
+receipt review. Manual confirmation followed by late SMS and replay, SMS
+followed by manual approval and replay, and a four-request race check the
+original confirmation method, one principal, one bank adjustment, one Wallet
+credit, one financial audit event, and stable wallet and report totals. Exactly
+one request wins the concurrent settlement. In the SMS-first case, manually
+reviewing the still-pending receipt changes the receipt review status only.
+The expanded collection suite passed three times after the fix.
+Shared checkout, bot and webhook regressions passed on an empty PostgreSQL 17
+database migrated and exercised as a non-superuser owner. TypeScript,
+architecture and security checks passed. No UI change or migration is involved.
+Live bank/phone commissioning remains a destination check. This is a local diff.
+
+## Card-transfer reliability and gateway catalogue — 2026-11-28
+
+Continue `.mobocom/pay-private-api-access` on
+`fix/pay-private-api-access-2026-11-28` from `b13dc3bf`. The owner requested
+review and further implementation of manual and SMS card transfer, and
+confirmed that Pay must offer eligible active MoboCom gateways.
+
+- The canonical transfer matcher requires server receipt of bank evidence by
+  the original quote deadline. Late exact evidence requires review. A receipt
+  held for manual verification remains pending and actionable. Replay keeps
+  the first receipt time. Approval and reconciliation retain invoice-first
+  locking, canonical journal, Wallet, and audit.
+- The reconciliation case projects independent approval and rejection authority
+  from the existing Pay guards. A full-access Admin can approve their own
+  merchant receipt. Required bank reference is entered directly in the case
+  and sent through the canonical receipt command. Other self-review guards
+  remain in force.
+- The canonical Billing catalogue keeps eligible active gateways available
+  when a separate card-transfer configuration is malformed. The existing
+  gateway Admin endpoint lists the invalid row as incomplete and supports
+  repair through an explicit valid replacement. SMS readiness verifies the
+  template bank code against the source before offering the automatic method.
+  Merchant / terminal policies, requested method and exact amount checks all
+  remain in the existing Pay catalogue owner.
+
+All 233 migrations applied to a fresh PostgreSQL 17 database. The collection
+and catalogue suites also passed as a non-superuser database owner.
+PostgreSQL connected checks cover late and timely SMS, manual approval,
+restricted and full-access review, invalid source and gateway configuration,
+and continued active method availability. Shared checkout, terminal keys and
+bot regressions also ran. Edge at 390 dark and 1440 light verified the bank
+reference field and action states, with scoped axe and viewport checks. The desktop case submitted through the
+real browser endpoint and the connected fixture observed the persisted result.
+TypeScript and architecture/source/security gates ran. React Doctor showed
+one complexity advisory for the case. Scoped Semgrep found zero issues. The
+OpenAPI comparison found no breaking schema change. Spectral showed one
+existing warning for the retired Bale endpoint.
+
+The implementation is a local diff with no migration. Live phone delivery and
+a real deposit through the destination setup remain unverified. Revert this
+code slice without changing settled rows or stored evidence.
+
+## Operational workspaces and financial reporting — 2026-11-28
+
+Continue `.mobocom/pay-private-api-access` on
+`fix/pay-private-api-access-2026-11-28` from `b13dc3bf`. This local slice
+implements the owner's request for professional Admin and merchant
+workspaces, integrated guides, and financial reports.
+
+- Admin overview counts the full receipt, merchant and settlement queues
+  in PostgreSQL and links to the existing operational desks. Payment search
+  filters the full list by payment ID, order ID, merchant name and canonical
+  status, with 25 rows per page. Settlement-only staff keep their existing
+  settlement permissions. The financial report opens from the overview
+  inside the existing Pay workspace. Menu definitions and merchant shell
+  are preserved.
+- Settings has direct links to its sections, save feedback, and an operator
+  guide for merchant setup, SMS Forwarder, reconciliation and settlement.
+  The merchant overview shows collection readiness and active terminals.
+  The developer guide includes first collection, key scopes, integration,
+  Telegram setup, troubleshooting and report access.
+- The financial report defaults to 30 days and allows up to 90 inclusive
+  Tehran calendar days. Paid totals come from the recorded payment, paid
+  bank adjustment and immutable Wallet credit. The report keeps gateway fee,
+  bank service fee, rounding, IRR and USDT separate. Settlement cohorts use
+  request date, current status and source currency. Daily amounts and
+  settlements export the selected range to CSV. The existing merchant
+  transaction-list exports remain available.
+- The CSS uses checked-in MoboCom SDS tokens and existing RTL typography.
+  Scope includes keyboard disclosure, theme contrast, mobile reflow and
+  reduced motion. No live Figma file was compared.
+
+All 233 migrations applied to disposable PostgreSQL 17. Native
+`pay-bale-collection` verified admin search, queue and receipt permissions,
+local-day report totals, bank adjustment, Wallet credit and invalid ranges.
+`pay-settlement-center` verified exact settlement cohorts and cross-merchant
+isolation. Shared checkout, private API access, terminal keys and bot
+regressions passed. TypeScript and repository source, architecture and
+security checks passed. React Doctor scanned eleven affected files with
+zero errors and four maintainability/performance advisories.
+
+Edge browser runs at 1440 light and dark, 768 light and 390 dark exercised
+the queue beyond its old 200-row list, settings save with reload, payment
+filter/reset, keyboard guide navigation, both date filters, CSV and restricted
+role. Scoped axe and overflow checks passed. An additional connected Edge run
+confirmed the chart and day picker with an actual settled fixture of ten
+million rial. Form, report, guide and chart captures are in ignored
+`playwright-report/`. Prototype dark contrast failures were corrected.
+
+No migration is required for this slice. The work is local. The scoped UI and
+read models can be reverted without changing financial rows. Live external
+bank and SMS behavior, and reporting capacity on a production-size ledger,
+were outside the completed checks.
+
+## Manual own receipt approval and SMS Forwarder save — 2026-11-28
+
+Continue `.mobocom/pay-private-api-access` on
+`fix/pay-private-api-access-2026-11-28` from `b13dc3bf`. The owner asked to
+approve receipts for their own merchant manually and reported that the SMS
+Forwarder source form did not save.
+
+The Pay receipts screen uses one review policy for the merchant card-transfer and
+automatic-collection receipt paths. A current full-access Admin can approve
+their own merchant receipt with the same verified transfer reference, financial
+claims and Audit as an independent reviewer. The Audit entry includes
+`selfReview`. Restricted staff cannot approve their own receipt. Own settlement,
+own generic invoice or wallet receipt review, own receipt rejection and
+own confirmation of bank evidence in reconciliation retain their existing rules.
+
+The source form shows the dedicated bank-account requirement, the validation
+error or saved state, and the current version for repeated edits. A full-access
+Admin can edit another Admin's source. Concurrent edits claim the stored version.
+The source owner, destination and encrypted token stay intact on edit. Saving
+identical settings preserves the version used by accepted checkouts. A disabled
+bank allows pausing its existing source. An invalid stored template can be listed
+and replaced. Creating a source requires the server's `PANEL_CREDENTIAL_KEY`;
+missing configuration returns a targeted error and a new token is issued only
+on creation. [Operator setup](../../MOBOCOM_PAY_SMS_FORWARDER.md).
+
+All 233 migrations applied to disposable PostgreSQL 17. The shared checkout
+and collection suites exercise own approval, denial for restricted staff, bank
+reference and exactly-once credit. The collection suite also tests SMS source
+ownership, missing encryption key, stale and unchanged edits, disabled bank,
+invalid template repair and synthetic automatic settlement. Pay bot, terminal
+keys, private API access, and settlement center regressions passed. TypeScript,
+architecture, source, and security checks passed. Scoped Semgrep ran one rule on
+five files with zero findings.
+
+Edge at 1440 px light and 390 px dark exercised create, invalid template feedback,
+update and durable reload. The desktop flow also exercised the missing-bank
+state. Both form scopes passed axe and viewport checks. React Doctor returned
+zero errors and one complexity advisory for the existing source component.
+Local ignored form captures are in `playwright-report/`.
+
+The changes require no migration or production configuration change on an
+already-configured instance. Live phone delivery, HTTPS setup on the target
+site, and a real bank deposit are still to be verified. Rollback can revert the
+policy and form code while retaining saved sources and recorded financial history.
+
+## Private account API access and bank SMS review — 2026-11-28
+
+Continue in `.mobocom/pay-private-api-access` on
+`fix/pay-private-api-access-2026-11-28` from merged main `b13dc3bf`. The owner
+requested hiding general API surfaces while retaining Pay machine access and
+asked about automated bank SMS settlement and the manual self-review refusal.
+
+The general account and public menu omit the API entry. Live personal-key
+management is available through the Pay guide for an active, eligible merchant
+and by direct URL for staff. The page and key list/issue endpoints share the
+eligibility check. Existing key owners retain direct authenticated revocation.
+Examples for general REST endpoints are removed from the browser component.
+The global `publicApiEnabled` setting retains its existing meaning for bot,
+terminal, legacy machine, webhook and bank SMS routes.
+
+The key owner endpoint projects display metadata, emits the new secret once
+with private/no-store and requires same-site Origin for issue and revoke.
+An atomic owner-scoped claim prevents changes to another account's keys.
+Quota checks and insertion share a Serializable transaction. Generic API
+authorization uses canonical session authority and rejects inactive and erased
+key owners. Existing working key types, namespaces and hashes are preserved.
+
+The later owner decision above allows full-access Admins to approve their own
+merchant's Pay receipt manually.
+The existing bank SMS intake authenticates the source and the matcher uses
+an accepted, exact reserved amount and bank destination, a valid time window
+and a single settlement claim. Phone configuration and an actual deposit
+remain destination checks. See the
+[operator guide](../../MOBOCOM_PAY_SMS_FORWARDER.md).
+
+On an empty disposable PostgreSQL 17 database with 233 migrations,
+`pay-private-api-access`, `global-authentication`, `pay-bot`,
+`pay-bale-collection`, `pay-terminal-keys` and `pay-shared-checkout` passed.
+The SMS suite uses synthetic sources and messages. Scoped Semgrep, TypeScript,
+architecture and security gates passed. This is a focused review of API key,
+Pay integration and SMS boundaries.
+
+Edge at 1440 px light and 390 px dark confirmed the ordinary account's menu
+and direct key endpoints are hidden, an active merchant can follow the Pay
+link, and the scoped key form has no axe or overflow finding. The early
+browser fixture hit the installer gate before an Admin fixture existed
+and the install probe cache expired. The completed run used the ordinary
+authenticated routes and captured the form in ignored `playwright-report/`.
+React Doctor reported no errors in the key form and one existing advisory
+about locale-dependent date formatting.
+
+Rollback reverts the browser and personal-key policy code. Existing keys,
+settings, permissions and payment records remain in their current tables.
+No schema change or production deployment is involved. The implementation
+is a local worktree diff.
+
 ## Terminal API credentials and release rehearsal — 2026-11-28
 
 Continue the existing gateway control branch from main `07583c07`. This slice

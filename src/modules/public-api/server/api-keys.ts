@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server'
 import { db } from '@/platform/database/prisma'
 import { rateLimitStrict } from '@/platform/http/rate-limit'
 import { globalAuthenticationDenied } from '@/modules/identity/server/authentication-restrictions'
+import { requireUser } from '@/modules/identity/server/access'
 
 export const API_KEY_PREFIX = 'kv_'
 
@@ -38,7 +39,7 @@ export interface ApiCaller {
 export async function resolveApiCaller(req: NextRequest): Promise<ApiCaller | null> {
   const key = extractApiKey(req)
   if (key) {
-    const include = { user: { select: { id: true, email: true, name: true, role: true, status: true } } } as const
+    const include = { user: { select: { id: true, email: true, name: true, role: true, status: true, erasedAt: true } } } as const
     let row = await db.apiKey.findUnique({ where: { token: hashApiKey(key) }, include })
     if (!row) {
       // One-time migration: keys created before hashing was introduced are
@@ -47,10 +48,10 @@ export async function resolveApiCaller(req: NextRequest): Promise<ApiCaller | nu
       if (legacy) {
         row = await db.apiKey
           .update({ where: { id: legacy.id }, data: { token: hashApiKey(key) }, include })
-          .catch(() => legacy)
+          .catch(() => db.apiKey.findUnique({ where: { token: hashApiKey(key) }, include }))
       }
     }
-    if (!row || !row.active || row.user.status === 'BANNED') return null
+    if (!row || !row.active || row.user.status !== 'ACTIVE' || row.user.erasedAt) return null
     if (await globalAuthenticationDenied(row.userId)) return null
     await db.apiKey
       .update({ where: { id: row.id }, data: { lastUsedAt: new Date(), requests: { increment: 1 } } })
@@ -59,14 +60,11 @@ export async function resolveApiCaller(req: NextRequest): Promise<ApiCaller | nu
   }
 
   // session fallback (used by the dashboard playground)
-  const { getServerSession } = await import('next-auth')
-  const { authOptions } = await import('@/modules/identity/auth')
-  const session: any = await getServerSession(authOptions)
-  const uid = Number(session?.user?.id || 0)
-  if (!uid) return null
-  const user = await db.user.findUnique({ where: { id: uid }, select: { id: true, email: true, name: true, role: true, status: true } })
-  if (!user || user.status !== 'ACTIVE' || await globalAuthenticationDenied(user.id)) return null
-  return { keyId: 0, userId: user.id, email: user.email, name: user.name, role: user.role }
+  const user = await requireUser(req)
+  if (!user) return null
+  const profile = await db.user.findUnique({ where: { id: user.id }, select: { name: true } })
+  if (!profile) return null
+  return { keyId: 0, userId: user.id, email: user.email, name: profile.name, role: user.role }
 }
 
 // --- per-key rate limiting (per minute) ---

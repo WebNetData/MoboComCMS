@@ -77,11 +77,30 @@ async function main(){
  const duplicateReceipt = await receipt(duplicate, duplicateProof, '');
  await assert.rejects(pay.reviewPayReceipt(actor(reviewer), { ...reviewInput, id: duplicateReceipt.id, trackingCode: reviewInput.trackingCode.toLowerCase() }), e => e.status === 409);
  assert.equal((await db.paymentReceipt.findUniqueOrThrow({where:{id:duplicateReceipt.id}})).status, 'PENDING');
+ const limitedRole = await db.role.create({ data: { name: tag + '-limited', permissions: 'mobocom-pay.manage' } });
+ const ownApproval = { id: duplicateReceipt.id, action: 'approve', trackingCode: 'OWN' + randomUUID().replaceAll('-', '') };
+ try {
+  await db.user.update({ where: { id: owner.id }, data: { role: 'ADMIN', roleId: limitedRole.id } });
+  state.reviewer = owner.id;
+  await assert.rejects(pay.reviewPayReceipt(actor(owner), ownApproval), error => error.status === 403);
+  await db.user.update({ where: { id: owner.id }, data: { roleId: null } });
+  await assert.rejects(pay.reviewPayReceipt(actor(owner), { ...ownApproval, action: 'reject', note: 'Synthetic review' }), error => error.status === 403);
+  assert.equal((await pay.reviewPayReceipt(actor(owner), ownApproval)).status, 'APPROVED');
+  assert.equal((await pay.reviewPayReceipt(actor(owner), ownApproval)).alreadyPaid, true);
+  assert.equal(await db.payment.count({ where: { invoiceId: duplicateStart.invoiceId, status: 'CONFIRMED' } }), 1);
+  assert.equal(await db.walletTx.count({ where: { userId: owner.id, idempotencyKey: 'pay-credit:' + duplicate.id, type: 'PAY_CREDIT' } }), 1);
+  const audit = await db.auditLog.findFirstOrThrow({ where: { actorUserId: owner.id, action: 'mobocom-pay.receipt.approve', targetId: duplicate.id } });
+  assert.equal(JSON.parse(audit.metadata).selfReview, true);
+ } finally {
+  state.reviewer = reviewer.id;
+  await db.user.update({ where: { id: owner.id }, data: { role: owner.role, roleId: null } });
+  await db.role.delete({ where: { id: limitedRole.id } });
+ }
  const unknown=await make('unknown'),up=await proof(unknown,3);state.unknown=true;const uncertain=await gatewayOwner.startPayGateway(req(unknown.id,up.cookie),unknown.id,{gatewayRef:'db:'+gateways[1].id});invoiceIds.push(uncertain.invoiceId);assert.equal(uncertain.status,'UNKNOWN');const count=state.createCount;await gatewayOwner.startPayGateway(req(unknown.id,up.cookie),unknown.id,{gatewayRef:'db:'+gateways[1].id});assert.equal(state.createCount,count);state.unknown=false;
  const burned=await make('burned-otp'),burnPhone='+989120008888',burn=await payer.requestPayPayerOtp(req(burned.id),burned.id,{phone:burnPhone,humanToken:'synthetic-human'}),burnCookie=payer.payPayerChallengeCookie(burned.id)+'='+burn.challengeToken,burnCode=codes.at(-1),wrongCode=burnCode==='000000'?'111111':'000000';
  for(let i=0;i<5;i++)await assert.rejects(payer.verifyPayPayerOtp(req(burned.id,burnCookie),burned.id,{phone:burnPhone,code:wrongCode}));await assert.rejects(payer.verifyPayPayerOtp(req(burned.id,burnCookie),burned.id,{phone:burnPhone,code:burnCode}));assert.equal(await db.user.count({where:{phone:{in:[phone,burnPhone]}}}),0);
  const held=await make('held-merchant'),hp=await proof(held,5),heldStart=await gatewayOwner.startPayGateway(req(held.id,hp.cookie),held.id,{gatewayRef:'db:'+gateways[1].id});invoiceIds.push(heldStart.invoiceId);await pay.changeMerchant(actor(reviewer),{id:merchant.id,status:'SUSPENDED'});
- const heldInvoice=await db.invoice.findUniqueOrThrow({where:{id:heldStart.invoiceId}}),heldForm=new FormData();for(const[k,v]of Object.entries({RefId:heldInvoice.providerTxnId,ResCode:'0',SaleOrderId:String(mellatInfra.mellatOrderId(heldInvoice.number)),SaleReferenceId:String(Date.now())}))heldForm.set(k,v);await mellat.POST_callback(new NextRequest('https://example.invalid/api/payment/mellat/callback',{method:'POST',body:heldForm}));assert.equal(state.reversalCount,1);assert.equal((await db.payPayment.findUniqueOrThrow({where:{id:held.id}})).status,'PENDING');assert.equal(await db.walletTx.count({where:{userId:owner.id,type:'PAY_CREDIT'}}),3);
+ const heldInvoice=await db.invoice.findUniqueOrThrow({where:{id:heldStart.invoiceId}}),heldForm=new FormData();for(const[k,v]of Object.entries({RefId:heldInvoice.providerTxnId,ResCode:'0',SaleOrderId:String(mellatInfra.mellatOrderId(heldInvoice.number)),SaleReferenceId:String(Date.now())}))heldForm.set(k,v);await mellat.POST_callback(new NextRequest('https://example.invalid/api/payment/mellat/callback',{method:'POST',body:heldForm}));assert.equal(state.reversalCount,1);assert.equal((await db.payPayment.findUniqueOrThrow({where:{id:held.id}})).status,'PENDING');assert.equal(await db.walletTx.count({where:{userId:owner.id,type:'PAY_CREDIT'}}),4);
  await assert.rejects(db.payPayment.update({where:{id:p.id},data:{totalMinor:1n}}));await assert.rejects(db.invoice.update({where:{id:invoice.id},data:{totalMinor:1n}}));
  state.enabled=false;await assert.rejects(pay.checkoutView(customer.id,req(customer.id,cp.cookie)),e=>e.status===404);state.enabled=true;
  console.log('PASS shared Pay PostgreSQL: fee sides/cap/snapshot; OTP/privacy/attempts/replay/cross-ticket; canonical receipt/reject/audit rollback/concurrency; real Mellat parser/callback/replay; single Wallet/journal; ambiguous no-retry/module-off');

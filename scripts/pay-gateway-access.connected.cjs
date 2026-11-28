@@ -19,6 +19,8 @@ const { NextRequest } = require('next/server')
       name: stamp + '-precision', provider: 'FRENZYEX', active: true, fiat: 'TMN', apiKey: 'fixture-provider-id', secretKey: 'fixture-provider-key',
     } })
     catalog.push(frenzy)
+    const invalid = await db.gateway.create({ data: { name: stamp + '-invalid', provider: 'CARD_TRANSFER', active: true, fiat: 'IRR', config: '{"autoVerify":true}' } })
+    catalog.push(invalid)
     secondTerminal = await pay.createTerminal(owner, { name: 'Scoped terminal', channelType: 'PAYMENT_LINK' })
 
     const legacy = await access.terminalGatewayOptions(owner, terminal.id)
@@ -26,6 +28,15 @@ const { NextRequest } = require('next/server')
       [ref(catalog[0]), ref(catalog[1]), ref(frenzy)], 'legacy empty policies inherit ready fixture gateways')
     assert.ok((await access.terminalGatewayOptions(owner, terminal.id, '1000000')).items.some(x => x.ref === ref(frenzy)))
     assert.ok(!(await access.terminalGatewayOptions(owner, terminal.id, '1000001')).items.some(x => x.ref === ref(frenzy)))
+    const gatewayAdmin = h.load('src/modules/billing/server/http/admin/gateways/route.ts')
+    const adminList = await gatewayAdmin.GET(admin.req)
+    assert.equal(adminList.status, 200)
+    assert.equal((await adminList.json()).gateways.find(row => row.id === invalid.id).usable, false)
+    const repaired = await gatewayAdmin.PATCH(new NextRequest('https://mobocom.invalid/api/admin/gateways', {
+      method: 'PATCH', headers: new Headers(admin.req.headers), body: JSON.stringify({ id: invalid.id, autoVerify: false, active: false }),
+    }))
+    assert.equal(repaired.status, 200)
+    assert.equal((await db.gateway.findUniqueOrThrow({ where: { id: invalid.id } })).active, false)
     await assert.rejects(access.adminGatewayAccess(otherOwner, merchant.id), e => e.status === 404 || e.status === 403)
 
     const current = await access.adminGatewayAccess(admin, merchant.id)

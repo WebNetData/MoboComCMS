@@ -1,3 +1,24 @@
+Billing Pay transfer reliability 2026-11-28: quote deadlines and evidence
+disposition belong to the transfer matcher; the reconciliation desk uses the
+canonical receipt approval command. Billing Gateway owns method readiness and
+Pay narrows it by merchant and terminal.
+[Handoff](handoffs/MOBOCOM_PAY.md#card-transfer-reliability-and-gateway-catalogue--2026-11-28).
+
+Billing Pay reports 2026-11-28: daily confirmed receipts and Wallet credits,
+settlement-request cohorts and CSV exports live in the authenticated Pay
+workspaces. Admin also has canonical queue counts and paginated payment search.
+[Handoff](handoffs/MOBOCOM_PAY.md#operational-workspaces-and-financial-reporting--2026-11-28).
+
+On 2026-11-28 Billing Pay extended its receipt review owners for full-access
+Admin approval of their own merchant receipts and its versioned SMS source
+settings for cross-Admin editing and template recovery.
+[Handoff](handoffs/MOBOCOM_PAY.md#manual-own-receipt-approval-and-sms-forwarder-save--2026-11-28).
+
+Private account API access 2026-11-28: Public API owns key eligibility and
+caller authorization. General navigation omits the key page, and the Pay
+guide links eligible merchants to their keys. Billing retains the enabled
+machine endpoints for Pay and the bank SMS source. [Handoff](handoffs/MOBOCOM_PAY.md#private-account-api-access-and-bank-sms-review--2026-11-28).
+
 Gateway access 2026-11-27: Billing Pay gateway-options owns effective
 catalogue, merchant and terminal policy, exact amount and bot-rule intersection.
 The existing checkout and terminal API use that projection. Merchant

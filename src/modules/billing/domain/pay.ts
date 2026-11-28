@@ -213,6 +213,7 @@ export interface PayBankEventView {
   paymentId: string | null
 }
 export interface PayAdminOverview {
+  workQueue: { requestedSettlements: number; approvedSettlements: number; pendingMerchants: number; pendingReceipts: number }
   permissions: { manage: boolean; settle: boolean }
   merchants: PayMerchantView[]
   payments: PayPaymentView[]

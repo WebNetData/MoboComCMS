@@ -1,5 +1,5 @@
 import { PayError } from '@/modules/billing/domain/pay'
-import { autoTransferConfig, isAutomaticTransfer } from '@/modules/billing/domain/auto-transfer'
+import { autoTransferConfig } from '@/modules/billing/domain/auto-transfer'
 import { baleGatewayReady } from '@/modules/billing/server/pay'
 import { NextRequest } from 'next/server'
 import { db } from '@/platform/database/prisma'
@@ -18,9 +18,20 @@ function mergeConfig(previous: string | undefined, b: any): string {
 }
 import { legacyNumber, normalizeCurrency, toMinor } from '@/shared/money'
 
+function storedTransfer(config: string) {
+  try { return autoTransferConfig(config) }
+  catch (error) { if (error instanceof PayError) return null; throw error }
+}
+
 async function sanitize(g: any) {
+  const transferProvider = ['CARD_TRANSFER', 'MOBOCOM_PAY'].includes(g.provider)
+  const transfer = transferProvider ? storedTransfer(g.config) : null
+  const automatic = g.provider === 'MOBOCOM_PAY' || transfer?.autoVerify
+  const usable = transferProvider && !transfer ? false : automatic
+    ? g.active && await baleGatewayReady(undefined, g.id)
+    : isGatewayUsable(g)
   return {
-    ...(['CARD_TRANSFER','MOBOCOM_PAY'].includes(g.provider) ? autoTransferConfig(g.config) : {}),
+    ...(transfer ?? {}),
     id: g.id,
     name: g.name,
     provider: g.provider,
@@ -39,7 +50,7 @@ async function sanitize(g: any) {
     hasSecret: Boolean(g.secretKey),
     accountUser: g.accountUser || '',
     ...(isInstallmentGateway(g.provider) ? (() => { const c = installmentConfig(g.config); return { baseUrl: c.baseUrl, installments: c.installments, hasPassword: Boolean(c.password) } })() : {}),
-    usable: isAutomaticTransfer(g) ? await (g.active ? baleGatewayReady(undefined, g.id) : false) : isGatewayUsable(g),
+    usable,
   }
 }
 
@@ -123,18 +134,18 @@ async function handlePATCH(req: NextRequest) {
   const current = await db.gateway.findUnique({ where: { id }, select: { fiat: true, minAmount: true, provider: true, config: true } })
   if (!current) return err('not found', 404)
   if (data.provider && data.provider !== current.provider && await db.payBaleCollection.count({ where: { gatewayId: id } })) return err('نوع درگاه دارای سابقهٔ پرداخت قابل تغییر نیست؛ درگاه تازه بسازید', 409)
-  if (String(data.provider || current.provider) === 'MOBOCOM_PAY') {
-    const transfer = autoTransferConfig({ ...autoTransferConfig(current.provider === 'MOBOCOM_PAY' ? current.config : '{}'), ...b })
-    Object.assign(data, { apiKey: '', secretKey: '', accountUser: '', config: JSON.stringify(transfer), fiat: 'IRR', feeBps: 0, feePercent: 0 })
-  }
-  if (String(data.provider || current.provider) === 'CARD_TRANSFER') {
-    data.config = JSON.stringify(autoTransferConfig({ ...autoTransferConfig(current.provider === 'CARD_TRANSFER' ? current.config : '{}'), ...b }))
+  const targetProvider = String(data.provider || current.provider)
+  if (['CARD_TRANSFER', 'MOBOCOM_PAY'].includes(targetProvider)) {
+    const previous = storedTransfer(current.provider === targetProvider ? current.config : '{}')
+    if (!previous && typeof b.autoVerify !== 'boolean') return err('تنظیمات مدل پرداخت و حساب مقصد را دوباره ذخیره کنید')
+    const transfer = autoTransferConfig({ ...(previous ?? {}), ...b })
+    data.config = JSON.stringify(transfer)
     data.fiat = 'IRR'
-    if (autoTransferConfig(data.config).autoVerify) { data.feeBps = 0; data.feePercent = 0 }
+    if (targetProvider === 'MOBOCOM_PAY') Object.assign(data, { apiKey: '', secretKey: '', accountUser: '' })
+    if (targetProvider === 'MOBOCOM_PAY' || transfer.autoVerify) Object.assign(data, { feeBps: 0, feePercent: 0 })
   }
   if (isInstallmentGateway(String(b?.provider || current.provider))) data.config = mergeConfig(current.config, b)
   const effectiveProvider = String(b?.provider || '') === 'FRENZYEX' ? 'FRENZYEX' : undefined
-  const targetProvider = String(data.provider || current.provider)
   const effectiveFiat = targetProvider === 'MOBOCOM_PAY' ? 'IRR' : effectiveProvider === 'FRENZYEX' ? 'TMN' : normalizeCurrency(b?.fiat ?? current.fiat)
   if ((b?.fiat !== undefined || targetProvider === 'MOBOCOM_PAY') && effectiveFiat !== current.fiat && b?.minAmount === undefined) {
     return err('changing gateway currency requires an explicit minimum amount')

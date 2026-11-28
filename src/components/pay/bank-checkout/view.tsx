@@ -1,6 +1,6 @@
 'use client'
 
-import type { BaleCheckout } from '@/modules/billing/domain/pay-bale-collection'
+import { bankAdjustmentParts, type BaleCheckout } from '@/modules/billing/domain/pay-bale-collection'
 import { money } from '../client'
 import s from '../Pay.module.css'
 import v from '../BankCheckout.module.css'
@@ -18,9 +18,21 @@ function Equivalent({ data }: { data: BaleCheckout }) {
   </div>
 }
 
-function Resolution({ data, expired, busy, back, onRenew }: { data: BaleCheckout; expired: boolean; busy: boolean; back: string | null; onRenew: () => void }) {
+function Resolution({ data, expired, busy, uploading, back, onRenew, onReceipt }: {
+  data: BaleCheckout; expired: boolean; busy: boolean; uploading: boolean; back: string | null; onRenew: () => void; onReceipt: () => void;
+}) {
   if (data.status === 'UNDER_REVIEW') return <section className={v.resolution} role="status"><span className={v.stateIcon} aria-hidden="true">…</span><h2>در حال بررسی و تأیید</h2><p>رسید شما ثبت شد. نتیجه همین‌جا نمایش داده می‌شود؛ نیازی به واریز مجدد نیست.</p>{back && <a className={s.secondary} href={back}>بازگشت به سفارش</a>}</section>
-  if (expired) return <section className={`${v.resolution} ${v.expired}`}><span className={v.stateIcon} aria-hidden="true">!</span><h2>مهلت پرداخت فاکتور به اتمام رسید</h2><strong>دیگر واریز نکنید</strong><p>برای ادامه، درخواست تازه با مبلغ و مهلت جدید صادر کنید.</p><button type="button" className={s.button} disabled={busy} onClick={onRenew}>{busy ? 'در حال دریافت…' : 'صدور مجدد فاکتور'}</button></section>
+  if (expired) return <section className={`${v.resolution} ${v.expired}`}>
+    <span className={v.stateIcon} aria-hidden="true">!</span><h2>مهلت پرداخت فاکتور به اتمام رسید</h2>
+    <strong>دیگر به مبلغ این درخواست واریز نکنید</strong>
+    {data.lateReceiptAllowed ? <>
+      <p>اگر قبلاً واریز کرده‌اید، رسید همان واریز را برای بررسی دستی بفرستید.</p>
+      <button type="button" className={s.button} disabled={busy || uploading} onClick={onReceipt}>ارسال رسید واریز قبلی</button>
+    </> : <p>{data.payCheckoutUrl ? 'اگر واریز نکرده‌اید، برای ادامه از پذیرنده لینک تازه بگیرید.' : 'برای ادامه، درخواست تازه با مبلغ و مهلت جدید صادر کنید.'}</p>}
+    {data.payCheckoutUrl
+      ? back && <a className={s.secondary} href={back}>بازگشت به سفارش</a>
+      : <button type="button" className={s.button} disabled={busy || uploading} onClick={onRenew}>{busy ? 'در حال دریافت…' : 'صدور مجدد فاکتور'}</button>}
+  </section>
   if (data.status === 'PAID') return <section className={`${v.resolution} ${v.success}`}><span className={v.stateIcon} aria-hidden="true">✓</span><h2>پرداخت تأیید شد</h2><p>واریز شما ثبت شده است.</p>{back && <a className={s.button} href={back}>بازگشت به سفارش</a>}</section>
   return <section className={v.resolution}><h2>{data.reviewReason === 'RECEIPT_REJECTED' ? 'رسید تأیید نشد' : 'پرداخت نیازمند بررسی است'}</h2><p>{data.reviewReason === 'RECEIPT_REJECTED' ? 'برای ادامه، درخواست تازه صادر کنید.' : 'برای پیگیری این واریز با پشتیبانی تماس بگیرید.'}</p>{data.reviewReason === 'RECEIPT_REJECTED' && <button type="button" className={s.button} disabled={busy} onClick={onRenew}>صدور درخواست تازه</button>}</section>
 }
@@ -32,6 +44,7 @@ export default function BankCheckoutView({ data, error, expired, countdown, rema
   onCopy: (label: string, value: string) => void; onReceipt: () => void; onRefresh: () => void
 }) {
   const pending = data?.status === 'PENDING' && !expired
+  const extra = data ? bankAdjustmentParts(data.adjustmentRial) : null
   const status = error ? 'دریافت ناموفق' : uploading ? 'در حال ثبت رسید' : !data ? 'در حال دریافت' : expired ? 'مهلت پایان یافت' : data.status === 'UNDER_REVIEW' ? 'در حال بررسی' : data.status === 'PAID' ? 'تأیید شد' : data.status === 'REVIEW' ? 'نیازمند بررسی' : data.accepted ? 'در انتظار واریز' : 'بررسی مبلغ'
   return <main className={`${s.page} ${v.page}`} dir="rtl">
     <header className={v.header}><div className={v.brand}><span dir="ltr">MoboCom Pay</span><h1>پرداخت سفارش</h1></div><span className={v.badge} data-state={expired ? 'EXPIRED' : data?.status}><i aria-hidden="true" />{status}</span></header>
@@ -43,7 +56,8 @@ export default function BankCheckoutView({ data, error, expired, countdown, rema
         <div><dt>مبلغ سفارش</dt><dd>{money(data.orderRial ?? data.principalRial)}</dd></div>
         {data.customerFeeRial && data.customerFeeRial !== '0' && <div><dt>سهم مشتری از کارمزد</dt><dd>{money(data.customerFeeRial)}</dd></div>}
         {data.merchantFeeRial && data.merchantFeeRial !== '0' && <div><dt>سهم پذیرنده از کارمزد</dt><dd>{money(data.merchantFeeRial)}</dd></div>}
-        <div><dt>مبلغ یکتای تشخیص واریز</dt><dd>{money(data.adjustmentRial)}</dd></div>
+        {extra && <div><dt>مبلغ یکتای تشخیص واریز</dt><dd>{money(extra.detectionRial)}</dd></div>}
+        {extra && extra.roundingRial !== '0' && <div><dt>گردکردن مبلغ واریز</dt><dd>{money(extra.roundingRial)}</dd></div>}
       </dl><Equivalent data={data} /></details></>}
       {error ? <p className={v.muted}>برای ادامه، وضعیت درخواست را تازه کنید.</p> : pending && data.receiptOnly ?
         <div className={v.consent}><p role="status">تأیید پیامکی این درخواست در دسترس نیست. با این درخواست واریز تازه انجام ندهید.</p>
@@ -52,9 +66,9 @@ export default function BankCheckoutView({ data, error, expired, countdown, rema
         : pending ? <>
         <div className={v.timer}><div><span>زمان باقی‌مانده برای واریز</span><strong dir="ltr">{countdown}</strong></div><progress aria-label="مهلت باقی‌مانده پرداخت" max={Math.max(1, (Date.parse(data.expiresAt) - Date.parse(data.validFrom)) / 1000)} value={remaining ?? 0} /></div>
         {!data.accepted ? <div className={v.consent}><label className={s.check}><input type="checkbox" checked={accepted} onChange={event => onAcceptChoice(event.target.checked)} />مبلغ نهایی و هزینهٔ خدمت را می‌پذیرم</label><button type="button" className={s.button} disabled={!accepted || busy} onClick={onAccept}>{busy ? 'در حال ثبت…' : 'پذیرش و ادامه'}</button></div>
-          : data.bank ? <><DestinationCard bank={data.bank} onCopy={onCopy} /><p className={v.feedback} role="status">{copied || 'پس از واریز مبلغ دقیق، وضعیت تأیید پیامکی همین‌جا به‌روزرسانی می‌شود.'}</p><button type="button" className={s.button} disabled={uploading} onClick={onReceipt}>{uploading ? 'در حال ثبت رسید…' : 'پرداخت کرده‌ام، ارسال رسید'}</button></>
+          : data.bank ? <><DestinationCard bank={data.bank} onCopy={onCopy} /><p className={v.feedback} role="status">{copied || (data.payCheckoutUrl ? 'بعد از واریز، تصویر رسید را بفرستید. تطبیق پیامکی پس از ثبت رسید انجام می‌شود.' : 'پس از واریز مبلغ دقیق، وضعیت تأیید پیامکی همین‌جا به‌روزرسانی می‌شود.')}</p><button type="button" className={s.button} disabled={uploading} onClick={onReceipt}>{uploading ? 'در حال ثبت رسید…' : 'پرداخت کرده‌ام، ارسال رسید'}</button></>
           : <p className={v.muted}>اطلاعات واریز هنوز آماده نیست؛ وضعیت را تازه کنید.</p>}
-      </> : <Resolution data={data} expired={expired} busy={busy} back={back} onRenew={onRenew} />}
+        </> : <Resolution data={data} expired={expired} busy={busy} uploading={uploading} back={back} onRenew={onRenew} onReceipt={onReceipt} />}
     </section>}
     <footer className={v.footer}><span>درگاه پرداخت موبوکام</span>{back && pending && <a href={back}>بازگشت به سفارش</a>}</footer>
   </main>

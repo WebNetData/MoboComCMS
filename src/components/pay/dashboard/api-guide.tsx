@@ -1,54 +1,76 @@
 import Link from "@/components/AppLink";
+import Icon from "@/components/site/Icon";
 import s from "../Pay.module.css";
+import layout from "../WorkspaceContent.module.css";
+
+const sections = [
+  ["first-payment", "اولین دریافت"],
+  ["merchant-api", "اتصال سرور"],
+  ["telegram-bot", "ربات تلگرام"],
+  ["payment-help", "رفع خطا و پیگیری"],
+] as const;
+
 export default function ApiGuide() {
   return (
-    <section className={s.card}>
-      <h2>اتصال به API</h2>
-      <p>این درگاه برای وب‌سایت، پیج اینستاگرام، کانال و لینک مستقل هم قابل استفاده است. در پایانه‌ها نوع سرویس را انتخاب کنید؛ برای شبکهٔ اجتماعی داشتن وب‌سایت یا اتصال ربات لازم نیست.</p>
-      <p>برای اتصال تازه از <bdi dir="ltr">/api/v2/pay</bdi> استفاده کنید. شبکه‌های BSC و Ethereum و تسویه از موجودی USDT در نسخهٔ ۲ عرضه می‌شوند؛ مسیرهای قدیمی نسخهٔ ۱ حفظ شده‌اند. کلید Bearer همان کلید API حساب پذیرنده است.</p>
-      <p>در بخش پرداخت‌ها، برای هر سفارش یک لینک بسازید و با دکمهٔ کپی برای مشتری بفرستید. کلید API فقط در سرور فروشگاه نگهداری می‌شود. API عمومی زیر برای وب‌سایت و هر سرویس دیگر است؛ بخش اتصال ربات یک گزینهٔ جداگانه است.</p>
-
-      <p>
-        کلید را در سرور خود نگه دارید و درخواست نسخهٔ ۲ را با Bearer ارسال کنید.
-        برای هر پرداخت یک کلید Idempotency-Key یکتا بفرستید و در تلاش مجدد همان
-        کلید را استفاده کنید.
-      </p>
-      <pre
-        tabIndex={0}
-        aria-label="نمونه درخواست ساخت پرداخت"
-        className={s.code}
-      >{`POST /api/v2/pay/payments\nAuthorization: Bearer <API_KEY>\nIdempotency-Key: <UNIQUE_REQUEST_KEY>\nContent-Type: application/json\n\n{"terminalId":"<TERMINAL_ID>","externalId":"<ORDER_ID>","amountRial":"100000"}`}</pre>
-      <p>
-        پیش از تحویل کالا، با{" "}
-        <code dir="ltr">GET /api/v2/pay/payments/:id</code> وضعیت ثبت‌شده، مبلغ
-        و شناسه سفارش را در سرور بررسی کنید. پرداخت‌ها را می‌توان با{" "}
-        <code dir="ltr">GET /api/v2/pay/payments?q=...</code> نیز
-        جست‌وجو کرد.
-      </p>
-      <Link className={s.secondary} href="/dashboard/api">
-        مدیریت کلیدهای API
-      </Link>
-      <p>
-        برای اتصال ربات تلگرام، سرور خود را به API متصل کنید؛ نیازی به ارسال
-        کلید به تلگرام نیست.
-      </p>
-      <h3>پرداخت در ربات خودتان</h3>
-      <p>نشانی کامل checkoutUrl را با دامنه موبوکام در دکمهٔ «پرداخت» ربات خود قرار دهید. مشتری در صفحهٔ موبوکام شماره‌اش را با پیامک تأیید می‌کند، روش پرداخت را انتخاب می‌کند و نتیجه را همان‌جا می‌بیند. انتقال به ربات دیگری لازم نیست.</p>
-      <pre className={s.code} tabIndex={0} aria-label="نمونه دکمه پرداخت ربات">{`{"inline_keyboard":[[{"text":"پرداخت","url":"https://YOUR_MOBOCOM_DOMAIN/pay/PAYMENT_ID"}]]}`}</pre>
-      <p>در چت خصوصی، در صورت فعال بودن قابلیت Web App ربات شما، می‌توان به‌جای url از web_app با همان نشانی HTTPS استفاده کرد. تأیید شماره و پرداخت در هر دو روش الزامی است.</p>
-      <h3>تحویل خودکار پس از تأیید</h3>
-      <p>سرور ربات، پرداخت‌های منتظر را دوره‌ای استعلام کند. فقط وقتی status برابر PAID است و id، externalId و amountRial با سفارش ذخیره‌شده شما یکی هستند، تحویل را با شناسهٔ یکتای پرداخت ثبت کند. netRial دریافتی پذیرنده و totalRial مبلغ پرداخت مشتری است. تأیید دستی رسید و تأیید آنلاین هر دو همین نتیجه را دارند. بازگشت مرورگر، ارسال رسید و پیام مشتری سند پرداخت نیستند.</p>
-      <p>استعلام از سرور خودتان انجام می‌شود؛ موبوکام برای این جریان به API تلگرام یا توکن ربات شما وصل نمی‌شود.</p>
-      <h3>ربات دارای «درگاه سفارشی»</h3>
-      <p>در صفحهٔ پایانه‌ها، اتصال آمادهٔ ربات را بسازید. آدرس API و کلید ساخت لینک همان اتصال را در پنل ربات وارد کنید. کلید API پرداخت ربات جداست و فقط برای تأیید سفارشِ واقعاً پرداخت‌شده استفاده می‌شود.</p>
-      <pre className={s.code} tabIndex={0} aria-label="قرارداد ساخت لینک درگاه سفارشی">{`POST /api/v1/pay/bot/CONNECTION_ID\nContent-Type: application/json\n\n{"api_key":"CREATE_LINK_KEY","amount":10000,"order_id":"order-123","user_id":123456789,"username":"example_username","first_name":"علی","type":"purchase","payment_count":3,"register":1735689600,"membership_days":45,"balance":25000}\n\n{"url":"https://YOUR_MOBOCOM_DOMAIN/pay/PAYMENT_ID"}`}</pre>
-      <p>amount تومان است؛ درخواست تکراری با همان order_id همان پرداخت را برمی‌گرداند. تغییر مبلغ یا کاربر/نوع سفارش با همان شناسه رد می‌شود. انتخاب پاسخ links نیز از تنظیم اتصال ممکن است؛ روش‌های فعال در صفحهٔ پرداخت نمایش داده می‌شوند.</p>
-      <pre className={s.code} tabIndex={0} aria-label="قرارداد تأیید سفارش ربات">{`POST https://YOUR_BOT_DOMAIN/api/payment\nToken: BOT_PAYMENT_API_KEY\nContent-Type: application/json\n\n{"order_id":"order-123","actions":"custom_payment_verify"}`}</pre>
-      <p>معیار پاسخ موفق باید مطابق ربات انتخاب شود. قطع ارتباط یا پاسخ نامشخص به معنی شکست وجه نیست؛ نتیجه در «پیگیری تأیید سفارش» برای بررسی می‌ماند و خودکار دوباره ارسال نمی‌شود. تنظیم اتصال با یک پرداخت آزمایشی و تکرار همان سفارش، پیش از استفادهٔ واقعی بررسی شود.</p>
-      <Link className={s.button} href="/pay/merchant/terminals">راه‌اندازی اتصال ربات</Link>
-      <h3>قواعد مسیر و پیگیری عملیات</h3>
-      <p>در پایانه‌ها، قواعد مرتبِ مبلغ تومانی، نوع سفارش و سابقهٔ اعلام‌شدهٔ ربات را تنظیم کنید. اولین قاعدهٔ منطبق روش‌ها را انتخاب می‌کند. در حالت links هر دکمه به همان پرداخت با پیشنهاد یک روش وصل است؛ شمارهٔ موبایل و کنترل روش مجاز همچنان روی سرور بررسی می‌شوند. تغییر قواعد مسیر سفارش‌های قبلی یا نسخهٔ تأیید ربات را عوض نمی‌کند.</p>
-      <Link className={s.secondary} href="/pay/merchant/operations">جست‌وجو و بررسی عملیات ربات</Link>
-    </section>
+    <div className={layout.workspace}>
+      <section className={`${layout.panel} ${layout.guideHero}`} aria-labelledby="merchant-guide-title">
+        <div className={layout.sectionHead}><div><h2 id="merchant-guide-title">مرکز راهنمای پذیرنده</h2><p>از ساخت اولین لینک تا اتصال سرور و تأیید سفارش ربات</p></div></div>
+        <nav className={layout.guideIndex} aria-label="موضوع‌های راهنما">
+          {sections.map(([id, title]) => <a key={id} className={layout.guideLink} href={`#${id}`}>{title}</a>)}
+        </nav>
+      </section>
+      <section id="first-payment" className={layout.panel} aria-labelledby="first-payment-title">
+        <div className={layout.sectionHead}><div><h2 id="first-payment-title">اولین دریافت با لینک پرداخت</h2><p>برای فروش در پیام‌رسان، شبکهٔ اجتماعی یا سفارش مستقیم</p></div></div>
+        <ol className={layout.steps}>
+          <li><strong>پایانه بسازید.</strong> نوع فعالیت خود را انتخاب کنید. برای پیج یا کانال، راه‌اندازی ربات لازم نیست.</li>
+          <li><strong>لینک سفارش را بسازید.</strong> پایانه، مبلغ ریالی و شناسهٔ یکتای سفارش را در پرداخت‌ها ثبت کنید. لینک را برای مشتری بفرستید.</li>
+          <li><strong>وصول را بررسی کنید.</strong> وضعیت پرداخت و مبلغ را با سفارش تطبیق دهید. اعتبار خالص و کارمزد در جزئیات پرداخت نمایش داده می‌شوند.</li>
+        </ol>
+        <div className={layout.guideIndex}><Link className={layout.guideLink} href="/pay/merchant/terminals">مدیریت پایانه‌ها</Link><Link className={layout.guideLink} href="/pay/merchant/payments">ساخت لینک پرداخت</Link></div>
+      </section>
+      <section id="merchant-api" className={layout.panel} aria-labelledby="merchant-api-title">
+        <div className={layout.sectionHead}><div><h2 id="merchant-api-title">اتصال وب‌سایت و سرور فروش</h2><p>برای اتصال جدید از نسخهٔ ۲ استفاده کنید.</p></div></div>
+        <div className={layout.guideIndex}><Link className={layout.guideLink} href="/dashboard/api"><Icon name="terminal" size={18} />مدیریت کلیدهای API</Link><Link className={layout.guideLink} href="/pay/merchant/webhooks">تنظیم وبهوک</Link><Link className={layout.guideLink} href="/pay/merchant/reports">گزارش مالی اتصال</Link></div>
+        <details className={layout.guideDetails}>
+          <summary>کلید مناسب و روش‌های مجاز پایانه</summary>
+          <div>
+            <p>کلید حساب را در سرور نگه دارید. اگر یک سرویس فقط به یک پایانه نیاز دارد، از مدیر درگاه کلید محدود به همان پایانه بگیرید. این کلید فقط فهرست روش‌های همان پایانه، ساخت پرداخت و استعلام همان پرداخت‌ها را پوشش می‌دهد.</p>
+            <pre tabIndex={0} dir="ltr" aria-label="استعلام روش‌های پایانه" className={s.code}>{`GET /api/v2/pay/terminals/<TERMINAL_ID>/gateways\nAuthorization: Bearer <API_KEY>`}</pre>
+          </div>
+        </details>
+        <details className={layout.guideDetails}>
+          <summary>نمونه ساخت پرداخت و بررسی نتیجه</summary>
+          <div>
+            <pre tabIndex={0} dir="ltr" aria-label="نمونه درخواست ساخت پرداخت" className={s.code}>{`POST /api/v2/pay/payments\nAuthorization: Bearer <API_KEY>\nIdempotency-Key: <UNIQUE_REQUEST_KEY>\nContent-Type: application/json\n\n{"terminalId":"<TERMINAL_ID>","externalId":"<ORDER_ID>","amountRial":"100000"}`}</pre>
+            <p>در ارسال دوبارهٔ همان درخواست، همان شناسهٔ <bdi>Idempotency-Key</bdi> را بفرستید. لینک checkoutUrl از پاسخ خوانده می‌شود. قبل از تحویل، نتیجه را از سرور با <code dir="ltr">GET /api/v2/pay/payments/&lt;PAYMENT_ID&gt;</code> استعلام کنید. وضعیت باید <bdi>PAID</bdi> باشد و شناسهٔ پرداخت، مبلغ و شناسهٔ سفارش با سفارش ثبت‌شده برابر باشند.</p>
+            <p>برای تحویل خودکار، شناسهٔ پرداخت را یک‌بار در سیستم فروش ثبت کنید. وبهوک می‌تواند استعلام را آغاز کند. تکرار رویداد نباید باعث تحویل دوباره شود.</p>
+          </div>
+        </details>
+      </section>
+      <section id="telegram-bot" className={layout.panel} aria-labelledby="telegram-bot-title">
+        <div className={layout.sectionHead}><div><h2 id="telegram-bot-title">اتصال ربات تلگرام</h2><p>مسیر راه‌اندازی را بر اساس نحوهٔ مدیریت ربات انتخاب کنید.</p></div></div>
+        <details className={layout.guideDetails}>
+          <summary>ربات اختصاصی و دکمهٔ پرداخت</summary>
+          <div><p>سرور ربات لینک را از API می‌گیرد و آن را در دکمهٔ پرداخت قرار می‌دهد. در گفت‌وگوی خصوصی می‌توانید در صورت پشتیبانی ربات، از دکمهٔ Web App با همان نشانی HTTPS استفاده کنید. مشتری شماره و پرداخت را در صفحهٔ موبوکام تکمیل می‌کند.</p><pre tabIndex={0} dir="ltr" className={s.code} aria-label="نمونه دکمه پرداخت ربات">{`{"inline_keyboard":[[{"text":"پرداخت","url":"https://YOUR_MOBOCOM_DOMAIN/pay/PAYMENT_ID"}]]}`}</pre></div>
+        </details>
+        <details className={layout.guideDetails}>
+          <summary>ربات با گزینهٔ «درگاه سفارشی»</summary>
+          <div>
+            <p>در پیکربندی پایانه، اتصال ربات را بسازید. نشانی اتصال و کلید ساخت لینک را در پنل ربات وارد کنید. توکن تأیید سفارش، مقدار جداگانه‌ای است که از ربات می‌گیرید.</p>
+            <pre tabIndex={0} dir="ltr" className={s.code} aria-label="قرارداد ساخت لینک درگاه سفارشی">{`POST /api/v1/pay/bot/CONNECTION_ID\nContent-Type: application/json\n\n{"api_key":"CREATE_LINK_KEY","amount":10000,"order_id":"order-123","user_id":123456789,"username":"example_username","first_name":"علی","type":"purchase","payment_count":3,"register":1735689600,"membership_days":45,"balance":25000}\n\n{"url":"https://YOUR_MOBOCOM_DOMAIN/pay/PAYMENT_ID"}`}</pre>
+            <p>در این اتصال amount به تومان است. درخواست تکراری با همان order_id همان پرداخت را برمی‌گرداند. قواعد پایانه می‌توانند روش‌ها را بر اساس مبلغ و نوع سفارش محدود کنند. در حالت links همهٔ دکمه‌ها به همان پرداخت مربوط‌اند.</p>
+            <pre tabIndex={0} dir="ltr" className={s.code} aria-label="قرارداد تأیید سفارش ربات">{`POST https://YOUR_BOT_DOMAIN/api/payment\nToken: BOT_PAYMENT_API_KEY\nContent-Type: application/json\n\n{"order_id":"order-123","actions":"custom_payment_verify"}`}</pre>
+            <p>معیار موفقیت پاسخ را مطابق ربات تعیین کنید. برای پاسخ نامشخص از «عملیات ربات» وضعیت را بررسی کنید.</p>
+            <div><Link className={layout.guideLink} href="/pay/merchant/terminals">راه‌اندازی اتصال ربات</Link></div>
+          </div>
+        </details>
+      </section>
+      <section id="payment-help" className={layout.panel} aria-labelledby="payment-help-title">
+        <div className={layout.sectionHead}><div><h2 id="payment-help-title">رفع خطا و پیگیری سفارش</h2></div></div>
+        <details className={layout.guideDetails}><summary>ربات هنگام ساخت لینک خطای ۴۰۱ می‌دهد</summary><div><p>فعال بودن پذیرنده، پایانه و اتصال ربات را بررسی کنید. نشانی و کلید ساخت لینک باید متعلق به همان اتصال باشند. اگر کلید عوض شده، مقدار تازه را در پنل ربات وارد کنید.</p></div></details>
+        <details className={layout.guideDetails}><summary>وجه پرداخت شده ولی سفارش ربات تأیید نشده است</summary><div><p>ابتدا وضعیت دریافت را در «پرداخت‌ها» بررسی کنید. سپس همان سفارش را در «عملیات ربات» پیدا کنید تا نتیجه و تاریخچهٔ تأیید مشخص شود.</p><div><Link className={layout.guideLink} href="/pay/merchant/operations">پیگیری عملیات ربات</Link></div></div></details>
+        <details className={layout.guideDetails}><summary>موجودی قابل تسویه و خروجی گزارش را از کجا ببینم؟</summary><div><p>در «تسویه‌ها» مبلغ، مقصد و وضعیت درخواست را ببینید. فایل CSV پرداخت‌ها و تسویه‌ها در گزارش‌های مالی در دسترس است.</p><div className={layout.guideIndex}><Link className={layout.guideLink} href="/pay/merchant/settlements">تسویه‌ها</Link><Link className={layout.guideLink} href="/pay/merchant/reports">گزارش‌های مالی</Link></div></div></details>
+      </section>
+    </div>
   );
 }

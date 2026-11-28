@@ -772,3 +772,41 @@ Existing clients keep their credentials and behavior. A rollback may leave the
 additive table in place. Ship the new credential only to systems that use the
 v2 routes. Acceptance covers issue, isolation, idempotency, rotation,
 revocation, audit and the browser panel.
+## Operational workspaces and financial reporting — 2026-11-28
+
+The Admin overview links to the operational desks and shows counts from the
+complete live queues. The Admin payment desk paginates in PostgreSQL and
+searches ID, external order ID or merchant name. Its review status uses the
+canonical payment status predicate. Existing Admin and merchant menus retain
+their entries. The operator guide lives in settings and the developer guide
+opens inside the merchant workspace.
+
+The browser reports accept an inclusive date-only range of up to 90 Tehran
+calendar days. Default range is the latest 30 days. Daily financial entries
+use the payment confirmation timestamp and the persisted Wallet credit. Actual
+customer receipt includes the paid bank adjustment where applicable. Platform
+fees, bank adjustment, rounding, IRR and USDT each have their own column.
+Settlement rows group requests created during the same range by current status
+and source currency. This is a request cohort, so a later status change is
+reflected in a new report run. CSV exports use the selected range.
+
+`GET /api/admin/mobocom-pay/reports` requires `mobocom-pay.manage`.
+`GET /api/pay/reports` requires an active merchant session and scopes before
+aggregation. Both are browser routes. Settlement-only staff can see settlement
+counts on the Admin overview. Native acceptance uses `pay-bale-collection`
+and `pay-settlement-center` on PostgreSQL, with signed browser role checks and
+CSV/keyboard/viewport checks. There is no schema change.
+
+## Card transfer deadline and catalogue isolation — 2026-11-28
+
+The same original server-receipt deadline governs automatic SMS matching
+for both pending and receipt-held quotes. Late evidence does not approve
+the payment automatically. Existing pending receipts remain eligible for
+manual approval, with a verified reference for a Pay receipt. The review desk
+uses the same scoped authority as the receipt command and projects approval
+and rejection independently. Replaying a notice retains its original timestamp.
+
+A malformed card-transfer configuration is ineligible. Other active and
+ready Billing gateways remain available subject to merchant and terminal
+policy, amount and payment-method restrictions. Admin can list and repair
+the invalid configuration using the existing gateway editor.

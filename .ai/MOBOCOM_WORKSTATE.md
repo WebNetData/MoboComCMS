@@ -1,3 +1,66 @@
+# Pay required receipt and invoice deadline — 2026-11-28
+
+Continue `.mobocom/pay-private-api-access` on
+`fix/pay-private-api-access-2026-11-28`, base `b13dc3bf`.
+Mandatory card-transfer receipt and fixed configurable Pay deadline.
+[Scope](../docs/agent/handoffs/MOBOCOM_PAY.md#required-receipt-and-invoice-deadline--2026-11-28).
+
+# Pay receipt fallback when SMS is unavailable — 2026-11-28
+
+Continue `.mobocom/pay-private-api-access` on
+`fix/pay-private-api-access-2026-11-28`, base `b13dc3bf`.
+Accepted IRR checkout can submit prior-payment evidence after the deadline
+with a valid payer session. Canonical manual approval and late SMS replay
+verified in PostgreSQL and receipt fallback in Edge.
+[Scope and verification](../docs/agent/handoffs/MOBOCOM_PAY.md#receipt-fallback-when-sms-is-unavailable--2026-11-28).
+
+# Pay fee inputs and smart transfer — 2026-11-28
+
+Continue `.mobocom/pay-private-api-access` on
+`fix/pay-private-api-access-2026-11-28`, base `b13dc3bf`.
+Fee inputs, SMS activation and the checkout adjustment split are verified
+in Edge and PostgreSQL.
+[Scope and verification](../docs/agent/handoffs/MOBOCOM_PAY.md#percent-fee-fields-and-smart-transfer-switch--2026-11-28).
+
+# Pay single financial posting across SMS and manual approval — 2026-11-28
+
+Continue `.mobocom/pay-private-api-access` on
+`fix/pay-private-api-access-2026-11-28`, base `b13dc3bf`. Added bounded
+retry for raw invoice-lock conflicts and real merchant exact-once coverage.
+[Scope and verification](../docs/agent/handoffs/MOBOCOM_PAY.md#single-financial-posting-across-sms-and-manual-approval--2026-11-28).
+
+# Pay card-transfer and gateway reliability — 2026-11-28
+
+Continue `.mobocom/pay-private-api-access` on
+`fix/pay-private-api-access-2026-11-28`, base `b13dc3bf`.
+Card-transfer SMS deadline, reconciliation tracking code, and per-gateway
+readiness isolation are implemented locally.
+[Scope and verification](../docs/agent/handoffs/MOBOCOM_PAY.md#card-transfer-reliability-and-gateway-catalogue--2026-11-28).
+
+# Pay operational workspaces and financial reports — 2026-11-28
+
+Continue `.mobocom/pay-private-api-access` on
+`fix/pay-private-api-access-2026-11-28`, base `b13dc3bf`.
+Admin queue, searchable payments, merchant overview, operator and developer
+guides, and date-filtered reports with CSV use existing Pay and Wallet owners.
+[Scope and verification](../docs/agent/handoffs/MOBOCOM_PAY.md#operational-workspaces-and-financial-reporting--2026-11-28).
+
+# Pay manual receipt approval and SMS Forwarder — 2026-11-28
+
+Continue `.mobocom/pay-private-api-access`,
+`fix/pay-private-api-access-2026-11-28`, from merged main `b13dc3bf`.
+Full-access Admin own merchant receipt approval and SMS source save/repair
+verified on PostgreSQL 17 and the source form in Edge. Live phone and bank
+delivery remain to be verified on the destination.
+[Scope and verification](../docs/agent/handoffs/MOBOCOM_PAY.md#manual-own-receipt-approval-and-sms-forwarder-save--2026-11-28).
+
+# Pay integrations and private API access — 2026-11-28
+
+Continue `.mobocom/pay-private-api-access`,
+`fix/pay-private-api-access-2026-11-28`, from merged main `b13dc3bf`.
+Hide general API entries while preserving eligible Pay key access, bot links
+and bank SMS settlement. [Scope and verification](../docs/agent/handoffs/MOBOCOM_PAY.md#private-account-api-access-and-bank-sms-review--2026-11-28).
+
 # Release 1.7.28 — 2026-11-28
 
 Release checkout `.mobocom/release-1.7.28`, branch `release/1.7.28`, from

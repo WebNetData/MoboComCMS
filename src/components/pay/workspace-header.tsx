@@ -9,9 +9,10 @@ const merchant: Record<string, [string, string]> = {
   terminals: ["پایانه‌ها", "مدیریت درگاه وب‌سایت، پیج، کانال و لینک‌های پرداخت مستقل"],
   operations: ["عملیات ربات", "پیگیری وصول وجه، صف تأیید و نتیجهٔ ارتباط با ربات فروشنده"],
   reports: ["گزارش‌های مالی", "روند دریافت‌های تأییدشده و خروجی جزئیات پرداخت و تسویه"],
-  api: ["اتصال و راهنمای API", "راهنمای اتصال، ساخت پرداخت و استعلام امن نتیجه"],
+  api: ["اتصال و راهنمای API", "راه‌اندازی اولین دریافت، اتصال وب‌سایت و رفع خطای ربات"],
 };
 const admin: Record<string, [string, string]> = {
+  reports: ["گزارش مالی درگاه", "وصول وجه، کارمزدها، اعتبار کیف پول و درخواست‌های تسویه"],
   webhooks: ["عملیات وبهوک پذیرندگان", "پایش ارسال رویدادها، توقف اتصال و بازبینی تلاش‌های تحویل"],
   operations: ["پایش دریافت‌های بانکی", "آمادگی منابع، زمان تأیید و ظرفیت مبلغ‌های یکتا"],
   reconciliation: ["میز مغایرت‌های پرداخت", "بررسی مدرک بانکی، رسید و سابقهٔ تصمیم‌های مالی"],
@@ -32,7 +33,7 @@ export default function WorkspaceHeader({ area, view, identity, children }: {
 }) {
   const sections = area === "merchant" ? merchant : admin;
   const [title, description] = sections[view] || sections.overview;
-  return <header className={`${s.heading} ${area === "merchant" ? s.merchant : ""}`}>
+  return <header className={`${s.heading} ${area === "merchant" ? s.merchant : s.admin}`}>
     <div className={s.identity}>
       <div>
         <div className={s.context}>{area === "merchant" ? "پنل پذیرندگان" : "مدیریت مالی"}<span aria-hidden="true" /><bdi>{identity || "MoboCom Pay"}</bdi></div>

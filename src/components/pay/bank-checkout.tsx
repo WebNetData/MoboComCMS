@@ -68,8 +68,10 @@ export default function BankCheckout({ id }: { id: string }) {
   const locallyExpired = data?.status === 'PENDING' && remaining === 0 && !uploading
   const countdown = remaining === null ? '—' : `${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`
   useEffect(() => {
-    if (!uploading && (data?.status !== 'PENDING' || locallyExpired)) receiptDialog.current?.close()
-  }, [data?.status, locallyExpired, uploading])
+    const canKeepDialog = data?.status === 'PENDING' && !locallyExpired ||
+      data?.lateReceiptAllowed && (data.status === 'EXPIRED' || locallyExpired)
+    if (!uploading && !canKeepDialog) receiptDialog.current?.close()
+  }, [data?.status, data?.lateReceiptAllowed, locallyExpired, uploading])
   return <>
     <BankCheckoutView data={data} error={error} expired={data?.status === 'EXPIRED' || locallyExpired}
       countdown={countdown} remaining={remaining} accepted={accepted} busy={busy} copied={copied}

@@ -55,7 +55,7 @@ export const settlementView = (row: PaySettlement): PaySettlementView => ({
 })
 
 export { checkoutView } from './checkout-view'
-async function merchantRead(actor: PayActor, tx: Prisma.TransactionClient) {
+export async function merchantRead(actor: PayActor, tx: Prisma.TransactionClient) {
   await payContext(actor, tx)
   const merchant = await tx.payMerchant.findUnique({ where: { userId: actor.id } })
   if (!merchant || merchant.status !== 'ACTIVE') throw new PayError('این پنل فقط برای پذیرندگان فعال است', 403, 'PAY_MERCHANT_INACTIVE')
@@ -196,6 +196,41 @@ export async function payPaymentById(actor: PayActor, id: string) {
     return paymentView(row)
   })
 }
+const adminPaymentInclude = {
+  terminal: true, invoice: { select: {
+    ...collectionProjection.select,
+    receipts: { orderBy: { id: 'desc' as const }, take: 20, select: { id: true } },
+    _count: { select: { receipts: { where: { status: 'PENDING' } } } },
+  } },
+} satisfies Prisma.PayPaymentInclude
+
+function adminPaymentView(row: Prisma.PayPaymentGetPayload<{ include: typeof adminPaymentInclude }>) {
+  const receipts = row.invoice?.receipts ?? []
+  return { ...paymentView({ ...row, hasPendingReceipt: Boolean(row.invoice?._count.receipts) }), receiptIds: receipts.map(receipt => receipt.id) }
+}
+
+export async function adminPayPayments(actor: PayActor, params: URLSearchParams) {
+  const page = Number(params.get('page') || 1), take = 25
+  const q = (params.get('q') || '').trim().slice(0, 100)
+  const status = params.get('status') || ''
+  return payTransaction(async tx => {
+    await payContext(actor, tx, 'mobocom-pay.manage')
+    if (!Number.isSafeInteger(page) || page < 1 || page > 100000) throw new PayError('شماره صفحه معتبر نیست')
+    const where: Prisma.PayPaymentWhereInput = q ? { OR: [
+      { id: q }, { externalId: { contains: q, mode: 'insensitive' } },
+      { merchant: { name: { contains: q, mode: 'insensitive' } } },
+    ] } : {}
+    if (status === 'EXPIRED' || status === 'PENDING' || status === 'UNDER_REVIEW') Object.assign(where, paymentStatusFilter(status, new Date()))
+    else if (status === 'PAID') where.status = status
+    else if (status) throw new PayError('وضعیت معتبر نیست')
+    const [rows, total] = await Promise.all([
+      tx.payPayment.findMany({ where, include: adminPaymentInclude, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take, skip: (page - 1) * take }),
+      tx.payPayment.count({ where }),
+    ])
+    return { items: rows.map(adminPaymentView), page, pages: Math.max(1, Math.ceil(total / take)), total }
+  })
+}
+
 export async function adminPayOverview(actor: PayActor) {
   return payTransaction(async (tx) => {
     // Settlement staff see only settlements; never bank configuration/merchant management.
@@ -214,11 +249,7 @@ export async function adminPayOverview(actor: PayActor) {
       ? await tx.payPayment.findMany({
           orderBy: { createdAt: 'desc' },
           take: 100,
-          include: { terminal: true, invoice: { select: {
-            ...collectionProjection.select,
-            receipts: { orderBy: { id: 'desc' }, take: 20, select: { id: true } },
-            _count: { select: { receipts: { where: { status: 'PENDING' } } } },
-          } } },
+          include: adminPaymentInclude,
         })
       : []
     const settlements = await tx.paySettlement.findMany({
@@ -230,7 +261,14 @@ export async function adminPayOverview(actor: PayActor) {
       ? await tx.payBankEvent.findMany({ orderBy: { createdAt: 'desc' }, take: 100 })
       : []
     const bankAccounts = manages ? await tx.bankAccount.findMany({ orderBy: { id: 'asc' }, take: 200 }) : []
+    const [requestedSettlements, approvedSettlements, pendingMerchants, pendingReceipts] = await Promise.all([
+      tx.paySettlement.count({ where: { status: 'REQUESTED' } }),
+      tx.paySettlement.count({ where: { status: 'APPROVED' } }),
+      manages ? tx.payMerchant.count({ where: { status: 'PENDING' } }) : 0,
+      manages ? tx.paymentReceipt.count({ where: { status: 'PENDING', invoice: { kind: 'PAY_COLLECTION', payCollection: { isNot: null } } } }) : 0,
+    ])
     return {
+      workQueue: { requestedSettlements, approvedSettlements, pendingMerchants, pendingReceipts },
       permissions: {
         manage: manages,
         settle: Boolean(await requirePerm(actor.req, 'mobocom-pay.settle', tx)),
@@ -238,10 +276,7 @@ export async function adminPayOverview(actor: PayActor) {
       merchants: merchants.map((row) =>
         merchantView(row, row.user.walletAccounts[0]?.withdrawableMinor || 0n, settings),
       ),
-      payments: payments.map(row => {
-        const receipts = row.invoice?.receipts ?? []
-        return { ...paymentView({ ...row, hasPendingReceipt: Boolean(row.invoice?._count.receipts) }), receiptIds: receipts.map(receipt => receipt.id) }
-      }),
+      payments: payments.map(adminPaymentView),
       settlements: settlements.map((row) => ({ ...settlementView(row), merchantName: row.merchant.name })),
       bankEvents: events.map((row) => ({
         id: row.id,

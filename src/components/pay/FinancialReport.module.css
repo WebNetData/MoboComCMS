@@ -1,0 +1,44 @@
+.control { border-inline-start: 3px solid var(--pay-accent); }
+.exports { display: flex; flex-wrap: wrap; gap: 8px; margin-block-start: 16px; }
+.flow { background: linear-gradient(145deg, color-mix(in srgb, var(--pay-accent) 7%, var(--pay-surface)), var(--pay-surface) 62%); }
+.flow .totals { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 145px), 1fr)); gap: 10px; }
+.totals > div { min-inline-size: 0; padding: 14px; border: 1px solid var(--pay-border); border-radius: 12px; background: var(--pay-surface); }
+.totals dt { color: var(--pay-muted); font-size: .8125rem; }
+.totals dd { margin: 8px 0 0; font-size: clamp(.875rem, 1.3vw, 1.2rem); font-weight: 650; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.selectedDay { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; }
+.selectedDay strong { color: var(--pay-ink); font-size: 1.2rem; }
+.chart {
+  display: flex;
+  gap: clamp(1px, .45vw, 6px);
+  block-size: 155px;
+  align-items: stretch;
+  margin-block-start: 14px;
+  padding: 12px;
+  border: 1px solid var(--pay-border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: repeating-linear-gradient(to top, var(--pay-wash) 0, var(--pay-wash) 1px, var(--pay-surface) 1px, var(--pay-surface) 25%);
+}
+.chart meter {
+  appearance: none;
+  writing-mode: vertical-lr;
+  direction: rtl;
+  flex: 1 1 0;
+  min-width: 0;
+  width: 0;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  --bar: color-mix(in srgb, var(--pay-accent) 54%, var(--pay-surface));
+}
+.chart meter[data-selected] { --bar: var(--pay-accent); }
+.chart meter::-webkit-meter-bar { border: 0; border-radius: 0; background: transparent; }
+.chart meter::-webkit-meter-optimum-value { border-radius: 4px 4px 0 0; background: var(--bar); }
+.chart meter::-moz-meter-bar { border-radius: 4px 4px 0 0; background: var(--bar); }
+.table { border: 1px solid var(--pay-border); border-radius: 12px; }
+.table table { margin: 0; }
+.table th, .table td { white-space: nowrap; }
+.table tbody tr:nth-child(even) { background: var(--pay-wash); }
+.table tbody tr:hover { background: color-mix(in srgb, var(--pay-accent) 7%, var(--pay-surface)); }
+.table:focus-visible { outline: 2px solid var(--pay-accent); outline-offset: 3px; }
+.empty { padding: 12px; border: 1px dashed var(--pay-border); border-radius: 10px; color: var(--pay-muted); }

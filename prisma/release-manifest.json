@@ -1044,6 +1044,9 @@
           "sha256": "9d4408c8ce29e137dd133803e29027ca7cb17a799c85a16d8e529de2f5b32ed9"
         }
       ]
+    },
+    "1.7.29": {
+      "migrations": []
     }
   },
   "unreleased": []
