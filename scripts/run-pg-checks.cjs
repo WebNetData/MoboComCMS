@@ -206,6 +206,7 @@ const OPTIONAL_CHECKS = ['cloud-navigation', 'navigation-control', 'updater-gith
 // These Pay fixtures require a migrated, disposable database owned by a non-superuser.
 const PAY_CHECKS = [
   'mobocom-pay',
+  'pay-account-lifecycle',
   'pay-shared-checkout',
   'pay-bot',
   'pay-routing-operations',

@@ -1,3 +1,8 @@
+Billing Pay terminal destinations and merchant workspace 2026-11-28:
+bank-account removal preserves evidence; verified cards can be assigned per
+terminal through Pay Admin. Public Pay home and merchant support retain their
+existing URLs. [Handoff](handoffs/MOBOCOM_PAY.md#terminal-receiving-accounts-and-merchant-workspace--2026-11-28).
+
 Billing Pay transfer reliability 2026-11-28: quote deadlines and evidence
 disposition belong to the transfer matcher; the reconciliation desk uses the
 canonical receipt approval command. Billing Gateway owns method readiness and

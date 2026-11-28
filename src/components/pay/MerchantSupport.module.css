@@ -1,0 +1,156 @@
+.support {
+  min-inline-size: 0;
+  color: var(--sds-color-text-default-default);
+  container-type: inline-size;
+}
+
+.support :global(.ticket-center) {
+  max-inline-size: none;
+  margin: 0;
+  padding: 0;
+}
+
+.support :global(.ticket-hero) {
+  gap: 16px;
+  padding: clamp(16px, 3cqi, 32px);
+  border-radius: var(--merchant-panel-radius);
+  border-color: var(--merchant-line);
+  background: linear-gradient(115deg, var(--merchant-tint), var(--merchant-surface) 70%);
+  box-shadow: var(--merchant-shadow);
+}
+
+.support :global(.ticket-pay-identity) { display: flex; align-items: center; gap: 16px; min-inline-size: 0; }
+.support :global(.ticket-pay-icon) {
+  flex: none;
+  display: grid;
+  place-items: center;
+  inline-size: 48px;
+  block-size: 48px;
+  border-radius: 14px;
+  border: 1px solid var(--merchant-line);
+  background: var(--merchant-surface);
+  color: var(--sds-color-text-default-default);
+}
+
+.support :global(.ticket-hero h1) {
+  margin: 0 0 4px;
+  font-size: clamp(1.375rem, 3cqi, 2.125rem);
+  letter-spacing: normal;
+}
+
+.support :global(.ticket-hero p) { font-size: .875rem; }
+.support :global(.ticket-new) { min-block-size: 44px; gap: 8px; }
+
+.support :global(.ticket-stats) {
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.support :global(.ticket-stats > div) {
+  gap: 6px 12px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  background: var(--merchant-surface);
+  border-color: var(--sds-color-border-default-default);
+  border-radius: 12px;
+}
+
+.support :global(.ticket-stats strong) {
+  color: var(--sds-color-text-default-default);
+  font-family: inherit;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+
+.support :global(.ticket-stats span) { color: var(--merchant-muted); }
+
+.support :global(.ticket-layout) {
+  grid-template-columns: clamp(276px, 29cqi, 360px) minmax(0, 1fr);
+  gap: clamp(12px, 2cqi, 24px);
+}
+
+.support :global(.ticket-list-pane), .support :global(.ticket-main-pane) {
+  min-inline-size: 0;
+  border-color: var(--sds-color-border-default-default);
+  border-radius: var(--merchant-panel-radius);
+  background: var(--merchant-surface);
+  box-shadow: var(--merchant-shadow);
+}
+
+.support :global(.ticket-list-pane) { inset-block-start: calc(var(--merchant-header) + 16px); }
+.support :global(.ticket-list-head) { gap: 8px; padding: 18px 16px 8px; }
+.support :global(.ticket-list-head span) {
+  color: var(--sds-color-text-default-default);
+  background: var(--merchant-tint);
+}
+
+.support :global(.ticket-filters) { flex-wrap: wrap; gap: 4px; padding: 0 12px 10px; }
+.support :global(.ticket-filters button) { min-block-size: 44px; }
+
+.support :global(.ticket-list-item) {
+  min-block-size: 72px;
+  padding: 12px 16px;
+}
+.support :global(.ticket-list-item strong) {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.support :global(.ticket-list-item-top) { flex-wrap: wrap; }
+
+.support :global(.ticket-main-pane), .support :global(.ticket-welcome) { min-block-size: 420px; }
+.support :global(.ticket-compose), .support :global(.ticket-thread) { padding: clamp(16px, 3cqi, 32px); }
+.support :global(.ticket-welcome-icon) {
+  color: var(--sds-color-text-default-default);
+  border: 1px solid var(--merchant-line);
+  background: var(--merchant-tint);
+}
+.support :global(.ticket-welcome h2) { margin-block-start: 16px; }
+.support :global(.ticket-close) { flex: 0 0 44px; inline-size: 44px; block-size: 44px; }
+.support :global(.ticket-form-grid) { grid-template-columns: minmax(0, 2fr) minmax(130px, 1fr); }
+.support :global(.ticket-message) { max-inline-size: min(92%, 72ch); }
+
+.support :global(.ticket-attachment-trigger) {
+  position: relative;
+  inline-size: max-content;
+  max-inline-size: 100%;
+  min-block-size: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--sds-color-border-default-default);
+  border-radius: 10px;
+  background: var(--merchant-tint);
+  color: var(--sds-color-text-default-default);
+  cursor: pointer;
+}
+.support :global(.ticket-attachment-trigger input) {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  opacity: 0;
+  cursor: inherit;
+}
+.support :global(.ticket-attachment-trigger:focus-within) {
+  outline: 2px solid var(--merchant-accent);
+  outline-offset: 3px;
+}
+.support :global(.ticket-attachment-trigger:has(input:disabled)) { opacity: .65; cursor: not-allowed; }
+
+@container (max-width: 740px) {
+  .support :global(.ticket-layout) { grid-template-columns: minmax(0, 1fr); }
+  .support :global(.ticket-list-pane) { position: static; }
+  .support :global(.ticket-list-scroll) { max-block-size: 280px; }
+  .support :global(.ticket-main-pane), .support :global(.ticket-welcome) { min-block-size: 300px; }
+}
+
+@container (max-width: 430px) {
+  .support :global(.ticket-hero) { flex-direction: column; align-items: start; }
+  .support :global(.ticket-pay-identity) { align-items: start; gap: 10px; }
+  .support :global(.ticket-pay-icon) { inline-size: 36px; block-size: 36px; border-radius: 10px; }
+  .support :global(.ticket-new) { align-self: stretch; justify-content: center; }
+  .support :global(.ticket-stats) { gap: 6px; }
+  .support :global(.ticket-stats > div) { align-content: start; flex-direction: column; align-items: start; padding: 10px; }
+  .support :global(.ticket-stats span) { font-size: .75rem; }
+  .support :global(.ticket-form-grid), .support :global(.ticket-departments) { grid-template-columns: minmax(0, 1fr); }
+}

@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { db } from '@/platform/database/prisma'
 import { err, ok } from '@/platform/http/response'
+import { originIsThisSite } from '@/platform/http/origin-policy'
 import { auditAdmin } from '@/platform/audit/server'
 import { requirePerm } from '@/modules/identity/server/access'
 import { TransferError } from '@/modules/billing/domain/card-transfer'
@@ -37,13 +38,16 @@ export async function SAVE_account(req: NextRequest) {
 export async function DELETE_account(req: NextRequest) {
   const admin = await requirePerm(req, 'gateways.manage')
   if (!admin) return err('forbidden', 403)
+  const origin = req.headers.get('origin')
+  if (!origin || !originIsThisSite(origin, req.headers.get('host'))) return err('مبدأ درخواست معتبر نیست', 403)
   const id = Number(req.nextUrl.searchParams.get('id'))
   if (!Number.isSafeInteger(id) || id <= 0) return err('invalid id')
   try {
-    const result = await retireBankAccount(id)
-    await auditAdmin({ req, actor: admin, action: result.deactivated ? 'bank_account.deactivate' : 'bank_account.delete', targetType: 'BankAccount', targetId: id })
-    return ok(result)
-  } catch (error) { return fail(error) }
+    return ok(await retireBankAccount(id, { req, actor: admin }))
+  } catch (error) {
+    return error instanceof TransferError ? err(error.message, error.status, error.code ? { code: error.code } : undefined)
+      : err('حذف حساب بانکی انجام نشد؛ دوباره تلاش کنید', 500)
+  }
 }
 
 // ------------------------------------------------------------ receipts (invoices.manage)

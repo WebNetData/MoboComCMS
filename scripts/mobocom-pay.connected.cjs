@@ -77,7 +77,7 @@ async function main() {
   assert.equal(journal.provider, 'MOBOCOM_PAY'); assert.equal(journal.invoiceId, null)
   await assert.rejects(bankOwner.saveBankAccount({ ...bank, accountNumber: '987654321' }), error => error.status === 409)
   assert.equal((await db.bankAccount.findUniqueOrThrow({ where: { id: bank.id } })).accountNumber, '123456789')
-  const retired = await bankHttp.DELETE_account(new NextRequest(`https://example.invalid/api/admin/bank-accounts?id=${bank.id}`, { method: 'DELETE', headers: { origin: 'https://example.invalid', 'x-fixture-user': String(admin.id) } }))
+  const retired = await bankHttp.DELETE_account(new NextRequest(`https://example.invalid/api/admin/bank-accounts?id=${bank.id}`, { method: 'DELETE', headers: { origin: 'https://example.invalid', host: 'example.invalid', 'x-fixture-user': String(admin.id) } }))
   assert.equal(retired.status, 200); assert.equal((await retired.json()).deactivated, true)
   assert.equal((await db.bankAccount.findUniqueOrThrow({ where: { id: bank.id } })).active, false)
   await bankOwner.saveBankAccount({ ...bank, active: true })

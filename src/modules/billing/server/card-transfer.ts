@@ -2,6 +2,10 @@ import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises'
 import type { NextRequest } from 'next/server'
+import { Prisma } from '@prisma/client'
+import { auditAdminStrict, type AdminAuditInput } from '@/platform/audit/server'
+import { payTransaction } from '@/modules/billing/server/pay/context'
+import { paySettings } from '@/modules/billing/server/pay/settings'
 import { db } from '@/platform/database/prisma'
 import { rateLimitHit } from '@/platform/http/rate-limit'
 import { logEvent } from '@/platform/observability/logger'
@@ -23,7 +27,7 @@ export const receiptDirectory = () => join(process.cwd(), 'storage', 'receipts')
 // ------------------------------------------------------------------ bank accounts
 
 export const listBankAccounts = (activeOnly = false) =>
-  db.bankAccount.findMany({ where: activeOnly ? { active: true, collectionUse: 'GENERAL' } : undefined, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] })
+  db.bankAccount.findMany({ where: { archivedAt: null, ...(activeOnly && { active: true, collectionUse: 'GENERAL' }) }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] })
 
 export async function saveBankAccount(input: Record<string, unknown>) {
   const data = normalizeBankAccount(input)
@@ -34,10 +38,11 @@ export async function saveBankAccount(input: Record<string, unknown>) {
         return await db.$transaction(async tx => {
           const previous = await tx.bankAccount.findUnique({ where: { id } })
           if (!previous) throw new TransferError('حساب بانکی پیدا نشد', 404)
+          if (previous.archivedAt) throw new TransferError('این حساب بایگانی شده است؛ حساب جدید ثبت کنید', 409)
           if (input.collectionUse === undefined) data.collectionUse = previous.collectionUse as typeof data.collectionUse
           if (data.collectionUse !== previous.collectionUse) throw new TransferError('کاربرد حساب پس از ساخت قابل تغییر نیست؛ حساب اختصاصی تازه ثبت کنید', 409)
           if ((previous.cardNumber !== data.cardNumber || previous.sheba !== data.sheba || previous.accountNumber !== data.accountNumber) &&
-            (await tx.payPayment.count({ where: { bankAccountId: id } }) || await tx.payBankEvent.count({ where: { bankAccountId: id } }) || await tx.payBaleNotice.count({ where: { bankAccountId: id } }) || await tx.payBaleCollection.count({ where: { bankAccountId: id } }))) throw new TransferError('این حساب سابقهٔ دریافت موبوکام‌پی دارد؛ برای شمارهٔ جدید حساب دیگری بسازید', 409)
+            (await tx.payPayment.count({ where: { OR: [{ bankAccountId: id }, { assignedBankAccountId: id }] } }) || await tx.paySmsSource.count({ where: { bankAccountId: id } }) || await tx.payBankEvent.count({ where: { bankAccountId: id } }) || await tx.payBaleNotice.count({ where: { bankAccountId: id } }) || await tx.payBaleCollection.count({ where: { bankAccountId: id } }))) throw new TransferError('این حساب سابقهٔ دریافت موبوکام‌پی دارد؛ برای شمارهٔ جدید حساب دیگری بسازید', 409)
           return tx.bankAccount.update({ where: { id }, data })
         }, { isolationLevel: 'Serializable' })
       } catch (error) {
@@ -49,23 +54,62 @@ export async function saveBankAccount(input: Record<string, unknown>) {
   return db.bankAccount.create({ data })
 }
 
-export async function retireBankAccount(id: number) {
-  for (let attempt = 0; ; attempt++) {
-    try {
-      return await db.$transaction(async tx => {
-        const used = (await tx.paymentReceipt.count({ where: { bankAccountId: id } })) +
-          (await tx.payPayment.count({ where: { bankAccountId: id } })) +
-          (await tx.payBankEvent.count({ where: { bankAccountId: id } })) +
-          (await tx.payBaleNotice.count({ where: { bankAccountId: id } })) +
-          (await tx.payBaleCollection.count({ where: { bankAccountId: id } }))
-        if (used) await tx.bankAccount.updateMany({ where: { id }, data: { active: false } })
-        else await tx.bankAccount.deleteMany({ where: { id } })
-        return { id, deactivated: used > 0 }
-      }, { isolationLevel: 'Serializable' })
-    } catch (error) {
-      if (!['P2034', 'P2003'].includes((error as { code?: string }).code || '') || attempt >= 2) throw error
+export function retireBankAccount(id: number, audit?: Pick<AdminAuditInput, 'req' | 'actor'>) {
+  return payTransaction(async tx => {
+    await tx.$queryRaw(Prisma.sql`SELECT id FROM "BankAccount" WHERE id = ${id} FOR UPDATE`)
+    const account = await tx.bankAccount.findUnique({ where: { id }, select: { active: true, archivedAt: true } })
+    if (!account || account.archivedAt) return { id, deactivated: Boolean(account), archived: Boolean(account) }
+
+    const now = new Date()
+    const destination = { OR: [{ bankAccountId: id }, { assignedBankAccountId: id }] }
+    const [pendingReceipt, openPayment, openCollection] = await Promise.all([
+      tx.paymentReceipt.findFirst({ where: { bankAccountId: id, status: 'PENDING', invoice: { status: 'UNPAID' } }, select: { id: true } }),
+      tx.payPayment.findFirst({ where: { ...destination, status: 'PENDING', expiresAt: { gt: now } }, select: { id: true } }),
+      tx.payBaleCollection.findFirst({
+        where: { bankAccountId: id, invoice: { status: 'UNPAID' }, OR: [
+          { status: 'PENDING', expiresAt: { gt: now } },
+          { status: 'UNDER_REVIEW' },
+          { status: 'REVIEW', notice: { OR: [{ transferReview: null }, { transferReview: { status: 'OPEN' } }] } },
+          { transferReviews: { some: { status: 'OPEN' } } },
+        ] },
+        select: { id: true },
+      }),
+    ])
+    if (pendingReceipt || openPayment || openCollection) {
+      throw new TransferError('ابتدا پرداخت‌ها یا رسیدهای باز این حساب را تکمیل کنید، سپس حساب را حذف کنید', 409, 'PAY_BANK_ACCOUNT_IN_USE')
     }
-  }
+    const [receipts, payments, assignedPayments, events, notices, collections, sources, terminals, pay] = await Promise.all([
+      tx.paymentReceipt.count({ where: { bankAccountId: id } }),
+      tx.payPayment.count({ where: { bankAccountId: id } }),
+      tx.payPayment.count({ where: { assignedBankAccountId: id } }),
+      tx.payBankEvent.count({ where: { bankAccountId: id } }),
+      tx.payBaleNotice.count({ where: { bankAccountId: id } }),
+      tx.payBaleCollection.count({ where: { bankAccountId: id } }),
+      tx.paySmsSource.count({ where: { bankAccountId: id } }),
+      tx.payTerminal.count({ where: { bankAccountId: id } }),
+      paySettings.read(tx),
+    ])
+    const archived = Boolean(assignedPayments || notices || collections || sources || terminals)
+    const deactivated = archived || Boolean(receipts || payments || events || pay.bankAccountIds.includes(id))
+    if (!archived && deactivated && !account.active) return { id, deactivated, archived }
+    if (archived) {
+      // Existing terminal assignments stay pinned and unavailable until a Pay admin changes them.
+      // Disable the SMS sources while retaining their foreign keys and old transfer evidence.
+      await tx.bankAccount.updateMany({ where: { id, archivedAt: null }, data: { active: false, archivedAt: now } })
+      await tx.paySmsSource.updateMany({ where: { bankAccountId: id, active: true }, data: { active: false, version: { increment: 1 } } })
+    } else if (deactivated) {
+      // Ordinary/manual account history retains the legacy reversible deactivation.
+      await tx.bankAccount.updateMany({ where: { id, active: true }, data: { active: false } })
+    } else {
+      await tx.bankAccount.deleteMany({ where: { id, archivedAt: null } })
+    }
+    if (audit) await auditAdminStrict({
+      ...audit, action: archived ? 'bank_account.archive' : deactivated ? 'bank_account.deactivate' : 'bank_account.delete',
+      targetType: 'BankAccount', targetId: id,
+      metadata: { pinnedTerminals: terminals },
+    }, tx)
+    return { id, deactivated, archived }
+  })
 }
 
 // ------------------------------------------------------------------ receipts
@@ -118,8 +162,13 @@ export async function submitReceipt(req: NextRequest, userId: number, invoiceNum
   await mkdir(receiptDirectory(), { recursive: true })
   await writeFile(join(receiptDirectory(), filename), bytes, { flag: 'wx', mode: 0o600 })
   try {
-    const row = await db.paymentReceipt.create({
-      data: { ...receipt, invoiceId: invoice.id, userId, amountMinor: dueMinor, currency, image: filename, imageType: type.mimeType },
+    const row = await payTransaction(async tx => {
+      if (receipt.bankAccountId && !(await tx.$queryRaw<{ id: number }[]>(Prisma.sql`
+        SELECT id FROM "BankAccount" WHERE id = ${receipt.bankAccountId} AND active AND "collectionUse" = 'GENERAL' FOR SHARE
+      `)).length) throw new TransferError('حساب مقصد معتبر نیست')
+      return tx.paymentReceipt.create({
+        data: { ...receipt, invoiceId: invoice.id, userId, amountMinor: dueMinor, currency, image: filename, imageType: type.mimeType },
+      })
     })
     logEvent('info', 'receipt.submitted', { receiptId: row.id, invoiceId: invoice.id, userId })
     void import('@/modules/sms/server/sms').then(({ notifyAdmins }) => notifyAdmins('ADMIN_RECEIPT', { invoice: invoice.number, amount: dueMinor.toString(), currency }))

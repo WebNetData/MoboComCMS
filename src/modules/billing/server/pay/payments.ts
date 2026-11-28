@@ -1,6 +1,6 @@
 import { acquisitionSnapshot } from './assets'
 import { createHash, randomBytes } from 'node:crypto'
-import type { Prisma } from '@prisma/client'
+import { Prisma } from '@prisma/client'
 import { PayError } from '@/modules/billing/domain/pay'
 import { idempotencyKey, paymentAmounts, reference, text, rial, merchantFeeTerms } from '@/modules/billing/domain/pay-policy'
 import { assertPayTerminal, merchantFor, payAudit, payContext, payTransaction, type PayActor } from './context'
@@ -45,7 +45,7 @@ export async function createPayPayment(actor: PayActor, input: Record<string, un
     if (await tx.payPayment.count({ where: { terminalId, externalId } }))
       throw new PayError('شناسهٔ سفارش قبلاً استفاده شده است', 409)
     const bank = await payCollectionBank(tx, settings.bankAccountIds)
-    const catalog = await listCheckoutGateways('IRR', tx, undefined, 'pay')
+    const catalog = await listCheckoutGateways('IRR', tx, undefined, 'pay', terminal.bankAccountId)
     const methods = eligiblePayGateways(catalog, { merchant, terminal }, {
       totalMinor: amounts.totalMinor, creditCurrency: merchant.creditCurrency, requestedGatewayRef: gatewayRef, hasBankAccount: Boolean(bank),
     })
@@ -53,6 +53,10 @@ export async function createPayPayment(actor: PayActor, input: Record<string, un
       ? new PayError('این درگاه برای این پایانه و مبلغ مجاز یا آماده نیست', 422, 'PAY_GATEWAY_NOT_AVAILABLE')
       : new PayError('هیچ روش پرداخت مجازی برای این پایانه و مبلغ آماده نیست', 503, 'PAY_NOT_READY')
     const cardTransfer = methods.some(method => method.provider === 'CARD_TRANSFER' && method.manual)
+    const assignedBankAccountId = !gatewayRef || methods.some(method => method.automatic) ? terminal.bankAccountId : null
+    const bankAccountId = cardTransfer ? bank?.id ?? null : null
+    const lockedBankIds = [...new Set([assignedBankAccountId, bankAccountId].filter(id => id !== null))]
+    if (lockedBankIds.length) await tx.$queryRaw(Prisma.sql`SELECT id FROM "BankAccount" WHERE id IN (${Prisma.join(lockedBankIds)}) ORDER BY id FOR SHARE`)
     const now = new Date(), id = randomBytes(24).toString('base64url'), expiresAt = new Date(now.getTime() + settings.paymentMinutes * 60000)
     const credit = await acquisitionSnapshot(tx, { id, merchantId: merchant.id, name: merchant.name, currency: merchant.creditCurrency, netMinor: amounts.netMinor, totalMinor: amounts.totalMinor, expiresAt, maxAgeMinutes: settings.usdtRateMaxAgeMinutes })
     const row = await tx.payPayment.create({
@@ -61,7 +65,8 @@ export async function createPayPayment(actor: PayActor, input: Record<string, un
         ...credit,
         merchantId: merchant.id,
         terminalId,
-        bankAccountId: cardTransfer ? bank?.id ?? null : null,
+        bankAccountId,
+        assignedBankAccountId,
         requestedGatewayRef: gatewayRef,
         externalId,
         idempotencyKey: idem,

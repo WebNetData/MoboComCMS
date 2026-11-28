@@ -45,7 +45,7 @@ export async function startPayGateway(req: NextRequest, id: string, input: Recor
     const row = await publicPayment(tx, id)
     const payer = await requirePayPayer(req, id, tx)
     await acceptPurchase(tx, row, input)
-    const catalog = await listCheckoutGateways('IRR', tx, undefined, 'pay')
+    const catalog = await listCheckoutGateways('IRR', tx, undefined, 'pay', row.assignedBankAccountId)
     const gateway = catalog.find(item => checkoutGatewayRef(item) === selected)
     if (!gateway) throw new PayError('درگاه فعال پیدا نشد', 404)
     if (!(await payGatewayOptions(row, tx, catalog)).some(method => method.ref === selected)) throw new PayError('این روش برای این سفارش مجاز یا آماده نیست', 409, 'PAY_GATEWAY_NOT_AVAILABLE')

@@ -37,16 +37,30 @@ export default function BankAccountsPage() {
   }
 
   async function remove(account: Account) {
-    if (!window.confirm(`حساب بانک ${account.bankName} (${account.holderName}) حذف شود؟`)) return
-    const response = await fetch(`/api/admin/bank-accounts?id=${account.id}`, { method: 'DELETE' })
-    const data = await response.json().catch(() => null)
-    setMessage(response.ok ? { text: data.deactivated ? 'این حساب رسید ثبت‌شده دارد؛ برای حفظ سوابق فقط غیرفعال شد.' : 'حساب حذف شد', error: false } : { text: data?.error || 'حذف نشد', error: true })
-    void load()
+    if (busy || !window.confirm(`حساب بانک ${account.bankName} (${account.holderName}) از فهرست حساب‌های دریافت برداشته شود؟`)) return
+    setBusy(true); setMessage(null)
+    try {
+      const response = await fetch(`/api/admin/bank-accounts?id=${account.id}`, { method: 'DELETE' })
+      const data = await response.json().catch(() => null)
+      if (!response.ok) {
+        setMessage({ text: data?.error || 'حذف حساب انجام نشد', error: true })
+        return
+      }
+      if (form.id === account.id) setForm(EMPTY)
+      await load()
+      const text = data?.archived ? 'حساب از فهرست دریافت برداشته شد و سوابق آن حفظ شد.'
+        : data?.deactivated ? 'حساب غیرفعال شد و سوابق آن حفظ شد.' : 'حساب حذف شد.'
+      setMessage({ text, error: false })
+    } catch {
+      setMessage({ text: 'ارتباط برقرار نشد. وضعیت حساب را پس از بازخوانی فهرست بررسی کنید.', error: true })
+    } finally {
+      setBusy(false)
+    }
   }
 
   return <div className="xm-page" dir="rtl">
     <header className="tb-hero"><div><span className="tb-eyebrow">حساب‌های بانکی</span><h1>حساب‌های بانکی (کارت به کارت)</h1><p>مشتری روی فاکتور یکی از این حساب‌ها را می‌بیند، مبلغ را واریز می‌کند و رسید را بارگذاری می‌کند. رسیدها در <Link href="/admin/receipts">رسیدهای پرداخت</Link> تأیید می‌شوند. درگاه «کارت به کارت / انتقال بانکی» باید در <Link href="/admin/gateways">درگاه‌ها</Link> فعال باشد.</p></div></header>
-    {message && <div className={`xm-notice${message.error ? ' is-error' : ''}`} role="status">{message.text}</div>}
+    {message && <div className={`xm-notice${message.error ? ' is-error' : ''}`} role={message.error ? "alert" : "status"}>{message.text}</div>}
     <form className="card seo-form" onSubmit={save}>
       {form.id ? <div className="studio-field seo-wide"><span>کاربرد حساب</span><strong>{form.collectionUse === 'MOBOCOM_PAY' ? 'اختصاصی درگاه موبوکام' : 'عمومی برای روش‌های دستی'}</strong><small className="muted">کاربرد حساب پس از ساخت قابل تغییر نیست.</small></div> : <label className="studio-field seo-wide"><span>کاربرد حساب</span><select className="input" value={form.collectionUse} onChange={(e) => setForm({ ...form, collectionUse: e.target.value as CollectionUse, dedicatedConfirmed: false })}><option value="GENERAL">عمومی برای روش‌های دستی</option><option value="MOBOCOM_PAY">اختصاصی درگاه موبوکام</option></select></label>}
       {form.collectionUse === 'MOBOCOM_PAY' && <p className="muted seo-wide">این حساب در روش‌های پرداخت دستی به مشتری نمایش داده نمی‌شود.</p>}
@@ -68,7 +82,7 @@ export default function BankAccountsPage() {
         <td dir="ltr" className="num">{account.cardNumber ? card(account.cardNumber) : ''}{account.sheba && <><br /><small className="muted">{account.sheba}</small></>}</td>
         <td className="num">{account.approvedCount.toLocaleString('fa-IR')}</td>
         <td>{account.active ? <span className="badge badge-green">فعال</span> : <span className="badge">غیرفعال</span>}</td>
-        <td className="fr-admin-row-actions"><button type="button" className="btn btn-ghost btn-sm" onClick={() => setForm({ id: account.id, bankName: account.bankName, holderName: account.holderName, cardNumber: account.cardNumber, sheba: account.sheba, accountNumber: account.accountNumber, note: account.note, active: account.active, sortOrder: account.sortOrder, collectionUse: account.collectionUse ?? 'GENERAL', dedicatedConfirmed: false })}>ویرایش</button><button type="button" className="btn btn-ghost btn-sm" onClick={() => void remove(account)}>حذف</button></td>
+        <td className="fr-admin-row-actions"><button type="button" className="btn btn-ghost btn-sm" onClick={() => setForm({ id: account.id, bankName: account.bankName, holderName: account.holderName, cardNumber: account.cardNumber, sheba: account.sheba, accountNumber: account.accountNumber, note: account.note, active: account.active, sortOrder: account.sortOrder, collectionUse: account.collectionUse ?? 'GENERAL', dedicatedConfirmed: false })}>ویرایش</button><button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => void remove(account)}>حذف</button></td>
       </tr>)}
       {!accounts.length && <tr><td colSpan={6} className="muted">هنوز حسابی ثبت نشده است؛ تا وقتی حساب فعالی نباشد، کارت به کارت در صفحهٔ پرداخت نمایش داده نمی‌شود.</td></tr>}
     </tbody></table></div>

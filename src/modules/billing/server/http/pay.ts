@@ -261,7 +261,13 @@ export async function payAdminHttp(req: NextRequest, context: { params: Promise<
     const center = await payCenterWrite(actor, resource, req.method, input, true)
     if (center) return center
     if (req.method === 'POST' && resource === 'merchant-directory') return apiOk({ id: (await enrollMerchant(actor, input)).id }, 201)
-    if (req.method === 'PATCH' && resource === 'merchant-directory') return apiOk(await manageMerchant(actor, input))
+    if (req.method === 'PATCH' && resource === 'merchant-directory') {
+      if (input.action === 'terminal-account') {
+        const origin = req.headers.get('origin')
+        if (!origin || !originIsThisSite(origin, req.headers.get('host'))) throw new PayError('مبدأ درخواست معتبر نیست', 403)
+      }
+      return apiOk(await manageMerchant(actor, input))
+    }
     if (req.method === 'PATCH' && resource === 'transfer-reviews') return apiOk(await decideTransferReview(actor, input))
     if (['POST','PATCH'].includes(req.method) && resource === 'sms-sources') return apiOk(await saveSmsSource(actor, input))
     if (req.method === 'PATCH' && resource === 'merchants')

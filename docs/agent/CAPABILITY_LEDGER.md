@@ -1,3 +1,9 @@
+Pay terminal receiving accounts and merchant workspace 2026-11-28:
+VERIFIED_LOCAL with PostgreSQL lifecycle, routing and upgrade checks, and Edge
+Admin/merchant/public verification. Active bank feeds were represented by
+synthetic SMS.
+[Evidence](handoffs/MOBOCOM_PAY.md#terminal-receiving-accounts-and-merchant-workspace--2026-11-28).
+
 Pay post-deadline receipt fallback for current accepted IRR checkouts
 2026-11-28: VERIFIED_LOCAL with unavailable SMS, verified payer authorization,
 manual bank-reference approval and exact-once credit.

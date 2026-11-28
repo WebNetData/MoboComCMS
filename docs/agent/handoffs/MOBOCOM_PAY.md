@@ -3128,3 +3128,68 @@ approval remain review controls. This tooling change required no browser
 run, real funds, provider request or production change. Revert this policy
 and test-infrastructure commit to roll back. There is no application schema
 or financial data rollback.
+
+## Terminal receiving accounts and merchant workspace — 2026-11-28
+
+Worktree `.mobocom/pay-reliability-engineering`, branch
+`fix/pay-account-lifecycle-and-workspace`, base `c50f9392` (Pay engineering
+gates over `b1c09c39`). The owner requested safe removal with SMS verification,
+a configurable receiving card per terminal, a wide merchant ticket surface,
+complete account identity and a redesigned Pay home.
+
+Billing's account DELETE previously retried an FK rejection when a verified
+SMS source had the only reference. The handler now locks and evaluates the
+account before making a claim. Actionable payment or review obligations block
+removal. Verified SMS and automatic histories cause an archive in place and
+disable the attached sources. Old ordinary accounts with history retain
+reversible deactivation. The admin list omits archived accounts and reports the
+actual removal action. A receipt still marked pending on an already-paid
+invoice remains historical evidence. It no longer blocks archival.
+
+Admin → Pay → Merchants → terminal now offers a destination-card selector.
+The writer validates the existing Pay permission, request Origin, merchant
+and terminal scope, version and effective gateway policy. Card options require
+the existing SMS intake and verified source to be ready. The Admin projection
+contains only the last four card digits. Billing snapshots the explicit
+destination on a payment before checkout. Archived terminal selections stay
+visible as unavailable until reassigned or cleared. Already issued quotes and
+ledger rows keep their destination. The additive migration
+`20270418190000_pay_terminal_receiving_account` adds archive status, both
+nullable relations and the PostgreSQL payment snapshot immutability guard.
+No production migration was run.
+
+The Pay landing has a payment preview, capability and onboarding sections
+and the primary merchant-dashboard action. The ticket workspace uses the
+existing shared ticket API with Pay-specific wide layout and mobile treatment.
+The sidebar and drawer wrap the full email next to the profile identity. The
+site PWA invitation retains its public behavior and stays clear of merchant
+workspace routes. Admin form operations and the landing follow the existing
+SDS tokens and focus behavior.
+
+Evidence: PostgreSQL 17 isolated non-superuser tests reproduced the original
+400 and exercise concurrent removal, missing Origin/permission denial, policy
+scoping, immutable destination, pending retention, automatic single credit,
+and archival after settlement. All 17 connected Pay checks passed. The populated
+historical settlement upgrade passed and all migrations deployed from empty.
+Linux `npm run check` passed with 1171 site, 53 connected source, 4 backup
+and 14 billing tests. Final TypeScript, security, schema and release-manifest
+checks also passed. The final Linux `npm run build:postgres` completed and
+passed the runtime trace check. Local Edge
+with an isolated application and actual APIs saved and reloaded assignment
+and account deletion. Edge and axe checked public CTA, new Pay
+home, merchant identity and ticket interaction across seven desktop, tablet
+and phone/theme combinations, including drawer Escape, active email hit
+target, native FAQ keyboard action and public/merchant PWA boundary.
+The application page returned 200. React Doctor had no blocking errors.
+Scoped Opengrep and redacted Gitleaks returned no findings. An independent
+review drove the immutability and policy changes and verified their final
+source and archive behavior. Screenshots remain local in
+`var/pay-lifecycle-browser`.
+The synthetic PostgreSQL databases, role and preview session files were removed.
+
+During release, apply the registered migration before upgrading the app.
+To roll back the app use its previous build, keeping the additive columns
+and constraints and the financial records. Keep assignment configured only
+where the receiving bank and the existing SMS source are operational. Local
+evidence uses synthetic accounts and SMS. A real bank or production rollout
+was outside this slice.

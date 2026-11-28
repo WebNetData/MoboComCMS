@@ -1,3 +1,10 @@
+# Terminal receiving accounts and merchant workspace — 2026-11-28
+
+Continue `.mobocom/pay-reliability-engineering` on
+`fix/pay-account-lifecycle-and-workspace`, base `c50f9392`.
+Safe account removal, terminal card assignment, Pay home and merchant workspace.
+[Behavior and evidence](../docs/agent/handoffs/MOBOCOM_PAY.md#terminal-receiving-accounts-and-merchant-workspace--2026-11-28).
+
 # Permanent payment engineering gates — 2026-11-28
 
 Continue `.mobocom/pay-reliability-engineering` on

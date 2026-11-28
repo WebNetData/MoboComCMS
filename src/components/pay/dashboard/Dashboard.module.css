@@ -9,9 +9,6 @@
 .dashboard :is(input:not([type="checkbox"]),select,textarea) { border-radius:10px; }
 .dashboard > form > h2 { font-size:1.125rem; }
 .dashboard :is(table) { font-variant-numeric:tabular-nums; }
-.support :global(.ticket-hero) { padding:clamp(18px, 3vw, 34px); border-radius:var(--merchant-panel-radius); border-color:var(--merchant-line); background:linear-gradient(125deg,var(--merchant-tint),var(--merchant-surface) 68%); box-shadow:var(--merchant-shadow); }
-.support :global(.ticket-new) { min-block-size:44px; }
-.support :global(.ticket-layout) > * { min-inline-size:0; }
 .loading { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.6fr); gap:24px; }
 .loading > div { min-height:220px; border:1px solid var(--sds-color-border-default-default); border-radius:20px; background:var(--sds-color-background-default-secondary); }
 .loading > div:last-child { display:grid; grid-template-columns:1fr 1fr; gap:24px; padding:24px; }

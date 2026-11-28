@@ -41,8 +41,45 @@ function TerminalForm({ terminal, disabled, save }: { terminal?: Terminal; disab
   </form>
 }
 
-export default function MerchantTerminals({ terminals, autoAllowed, disabled, action }: {
-  terminals: Terminal[]; autoAllowed: boolean; disabled: boolean; action: MerchantAdminAction
+type ReceivingAccount = MerchantDetail['bankAccounts'][number]
+
+function TerminalAccountForm({ terminal, bankAccounts, disabled, save }: {
+  terminal: Terminal; bankAccounts: ReceivingAccount[]; disabled: boolean; save: MerchantAdminAction
+}) {
+  const original = terminal.bankAccountId === null ? '' : String(terminal.bankAccountId)
+  const [selected, setSelected] = useState(original)
+  const eligibleIds = new Set(terminal.eligibleBankAccountIds ?? [])
+  const options = bankAccounts.map(item => item.eligible && !eligibleIds.has(item.id)
+    ? { ...item, eligible: false, reason: 'درگاه سازگار با سیاست این پذیرنده و پایانه فعال نیست' }
+    : item)
+  const account = options.find(item => String(item.id) === selected)
+  const unavailable = selected !== '' && !account?.eligible
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (disabled || unavailable || selected === original) return
+    void save({ action: 'terminal-account', terminalId: terminal.id, bankAccountId: account?.id ?? null })
+  }
+
+  return <form className={o.terminalAccount} onSubmit={submit}>
+    <Field label="کارت مقصد تأیید خودکار">
+      <select value={selected} onChange={event => setSelected(event.target.value)}>
+        <option value="">از تنظیمات درگاه استفاده شود</option>
+        {selected && !account && <option value={selected} disabled>کارت انتخاب‌شده در دسترس نیست</option>}
+        {options.map(item => <option key={item.id} value={item.id} disabled={!item.eligible}>
+          {[item.bankName, item.holderName, item.cardLast4 && 'پایان ' + item.cardLast4, !item.eligible && item.reason].filter(Boolean).join(' · ')}
+        </option>)}
+      </select>
+    </Field>
+    <p className={s.muted}>تغییر کارت برای پرداخت‌های جدید اعمال می‌شود. کارت باید منبع پیامک تأییدشده داشته باشد و در تنظیمات درگاه مجاز باشد.</p>
+    {unavailable && <p className={o.gatewayWarning} role="status">{account?.reason || 'کارت قبلی در دسترس نیست. کارت دیگری یا تنظیمات درگاه را انتخاب کنید.'}</p>}
+    {!options.some(item => item.eligible) && <p className={s.muted}>در حال حاضر کارت آماده‌ای برای تخصیص وجود ندارد.</p>}
+    <button type="submit" className={s.button} disabled={disabled || unavailable || selected === original}>ذخیرهٔ کارت مقصد</button>
+  </form>
+}
+
+export default function MerchantTerminals({ terminals, bankAccounts, autoAllowed, disabled, action }: {
+  terminals: Terminal[]; bankAccounts: ReceivingAccount[]; autoAllowed: boolean; disabled: boolean; action: MerchantAdminAction
 }) {
   return <section className={`${s.stack} ${o.controlGroup}`} aria-labelledby="pay-admin-terminals">
     <h3 id="pay-admin-terminals">پایانه‌ها و اتصال‌ها</h3>
@@ -59,6 +96,7 @@ export default function MerchantTerminals({ terminals, autoAllowed, disabled, ac
         <button className={s.secondary} type="button" disabled={disabled} onClick={() => void action({ action: 'terminal', terminalId: terminal.id, active: !terminal.active, baleEnabled: terminal.baleEnabled && autoAllowed })}>{terminal.active ? 'توقف پایانه' : 'فعال‌سازی پایانه'}</button>
         <button className={s.secondary} type="button" disabled={disabled || !autoAllowed} onClick={() => void action({ action: 'terminal', terminalId: terminal.id, active: terminal.active, baleEnabled: !terminal.baleEnabled })}>{terminal.baleEnabled ? 'بستن روش خودکار پایانه' : 'فعال‌کردن روش خودکار پایانه'}</button>
       </div>
+      <div><TerminalAccountForm key={terminal.bankAccountId ?? 'default'} terminal={terminal} bankAccounts={bankAccounts} disabled={disabled} save={action} /></div>
       <details className={o.disclosure}><summary>ویرایش پایانه</summary><TerminalForm terminal={terminal} disabled={disabled} save={action} /></details>
       {terminal.bot && <div><p>اتصال ربات {terminal.bot.active ? 'فعال است' : 'متوقف است'}</p>
         <button className={s.secondary} type="button" disabled={disabled || !terminal.bot.active} onClick={() => void action({ action: 'revoke-bot', terminalId: terminal.id, botVersion: terminal.bot!.version })}>توقف اتصال و کلید ربات</button>

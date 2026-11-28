@@ -265,7 +265,9 @@ export async function adminPayOverview(actor: PayActor) {
     const events = manages
       ? await tx.payBankEvent.findMany({ orderBy: { createdAt: 'desc' }, take: 100 })
       : []
-    const bankAccounts = manages ? await tx.bankAccount.findMany({ orderBy: { id: 'asc' }, take: 200 }) : []
+    const bankAccounts = manages ? await tx.bankAccount.findMany({
+      where: { OR: [{ archivedAt: null }, { id: { in: settings.bankAccountIds } }] }, orderBy: { id: 'asc' }, take: 200,
+    }) : []
     const [requestedSettlements, approvedSettlements, pendingMerchants, pendingReceipts] = await Promise.all([
       tx.paySettlement.count({ where: { status: 'REQUESTED' } }),
       tx.paySettlement.count({ where: { status: 'APPROVED' } }),

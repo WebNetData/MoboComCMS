@@ -3,7 +3,8 @@ export type MerchantDirectory = { page: number; pages: number; total: number; ca
 export type MerchantDetail = {
   assetBalances?: import('./pay').PayAssetBalance[]
   merchant: MerchantDirectory['items'][number]
-  terminals: (PayTerminalView & { bot: null | { id: string; active: boolean; version: number; callbackUrl: string } })[]
+  bankAccounts: { id: number; bankName: string; holderName: string; cardLast4: string; eligible: boolean; reason: string }[]
+  terminals: (PayTerminalView & { bankAccountId: number | null; eligibleBankAccountIds: number[]; bot: null | { id: string; active: boolean; version: number; callbackUrl: string } })[]
   stats: { payments: number; paidRial: string; pendingSettlements: number }
   history: { id: number; action: string; note: string; actorId: number; at: string }[]
 }
