@@ -1,5 +1,28 @@
 # Dedicated Cloud customer workspace — 2026-11-26
 
+## Customer dashboard redesign — 2026-11-28
+
+Continued from main `16cfa69a` in `.mobocom/cloud-dashboard-local-tools`,
+branch `feat/cloud-dashboard-redesign`. The new dashboard uses a CSS network
+illustration, resource cards with actual active counts, a service list with
+detail links, urgent items and due dates, allocated capacity, invoices and
+recent activity. The common shell styles the service, invoice, support and
+ordering screens. The existing mobile drawer, keyboard behavior, themes and
+canonical Hosting, Billing, Support and Identity routes are used.
+
+The preview reused checked-in SDS/MoboCom tokens. A connected Figma reference
+was unavailable. Initial illustration motion respects reduced motion. The
+capacity section totals purchased plans and does not report live utilization.
+This change has no database migration or external provider calls in its design.
+
+Edge with an isolated PostgreSQL fixture exercised the populated dashboard at
+320, 390, 768 and 1440 px, including light/dark, account isolation, empty/error
+states, service details, invoices, wallet, support, catalog lists and the order
+wizard. Scoped axe checks and keyboard drawer restoration passed. PostgreSQL
+suites `cloud-workspace`, `ticket-workspaces`, and
+`dashboard-service-ordering` passed. TypeScript, source, architecture and the
+scoped React Doctor scan passed.
+
 ## Scoped ticket service selection — 2026-11-27
 
 Continue PR #514 on `feat/cloud-dashboard-local-tools-2026-11-27` from

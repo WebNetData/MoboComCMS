@@ -1,3 +1,9 @@
+# Cloud customer dashboard redesign — 2026-11-28
+
+Continue `.mobocom/cloud-dashboard-local-tools` on
+`feat/cloud-dashboard-redesign`, base `16cfa69a`.
+[Dashboard changes and checks](../docs/agent/handoffs/CLOUD_WORKSPACE.md#customer-dashboard-redesign--2026-11-28).
+
 # Pay statement preview and operations follow-up — 2026-11-28
 
 Continue `.mobocom/pay-private-api-access` on

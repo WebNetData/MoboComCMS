@@ -4,14 +4,15 @@
   --cloud-accent: var(--primary, var(--sds-theme-accent));
   --cloud-text: var(--sds-color-text-default-default);
   --cloud-muted: color-mix(in srgb, var(--cloud-text) 72%, var(--cloud-surface));
-  --cloud-line: var(--sds-color-border-default-default);
+  --cloud-line: color-mix(in srgb, var(--cloud-text) 12%, var(--cloud-surface));
   --cloud-surface: var(--sds-color-background-default-default);
-  --cloud-ground: var(--sds-color-background-default-secondary);
+  --cloud-ground: color-mix(in srgb, #6f9bb9 5%, var(--sds-color-background-default-secondary));
   --cloud-hover: color-mix(in srgb, var(--cloud-text) 6%, var(--cloud-surface));
-  --cloud-gutter: 32px;
-  --cloud-header: 68px;
+  --cloud-shadow: 0 2px 3px #14284409, 0 6px 20px #14284408;
+  --cloud-gutter: clamp(22px, 2.6vw, 46px);
+  --cloud-header: 64px;
   display: grid;
-  grid-template-columns: 272px minmax(0, 1fr);
+  grid-template-columns: 248px minmax(0, 1fr);
   grid-template-rows: auto 1fr auto;
   grid-template-areas: "sidebar header" "sidebar content" "sidebar footer";
   min-height: 100dvh;
@@ -34,12 +35,13 @@
   border-block-end: 1px solid var(--cloud-line);
 }
 
-.headerStart, .crumbs, .brand, .account, .accountIdentity {
+.headerStart, .headerActions, .crumbs, .brand, .account, .accountIdentity {
   display: flex;
   align-items: center;
   gap: 12px;
   min-inline-size: 0;
 }
+.headerActions { flex: none; gap: 7px; }
 
 .crumbs { gap: 8px; font-size: .875rem; color: var(--cloud-muted); }
 .crumbs :is(a, span) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -80,7 +82,6 @@
 .brand {
   min-block-size: var(--cloud-header);
   padding: 8px 18px;
-  border-block-end: 1px solid var(--cloud-line);
   color: inherit;
   text-decoration: none;
   font-size: 1rem;
@@ -93,9 +94,11 @@
   flex: none;
   inline-size: 38px;
   block-size: 38px;
-  border: 1px solid var(--cloud-line);
-  border-radius: 10px;
-  color: var(--cloud-accent);
+  border: 1px solid #477787;
+  border-radius: 11px;
+  color: #aef2ea;
+  background: #173a55;
+  box-shadow: inset 0 1px 0 #ffffff24;
 }
 
 .navigation {
@@ -110,7 +113,7 @@
 }
 
 .navigation :global(.ws-part) { margin: 0 0 3px; }
-.navigation :global(.ws-caption) { margin: 15px 10px 4px; padding: 0; color: var(--cloud-muted); font-size: .75rem; }
+.navigation :global(.ws-caption) { margin: 20px 10px 5px; padding: 0; color: var(--cloud-muted); font-size: .72rem; font-weight: 650; }
 .navigation :global(.ws-caption)::after { content: none; }
 
 .navigation :global(.ws-toggle), .navigation :global(.ws-flat), .navigation :global(.ws-item) {
@@ -159,13 +162,13 @@
 
 .navigation :global(.ws-items[hidden]) { display: none; }
 .navigation :global(.side-icon) { display: inline-flex; color: var(--cloud-muted); flex: none; }
-.navigation :global(.side-link.side-link-active) { background: var(--cloud-hover); font-weight: 650; }
+.navigation :global(.side-link.side-link-active) { background: color-mix(in srgb, var(--cloud-accent) 12%, var(--cloud-surface)); border-color: color-mix(in srgb, var(--cloud-accent) 22%, var(--cloud-surface)); font-weight: 720; }
 .navigation :global(.side-link.side-link-active)::before {
   position: absolute;
   content: '';
   inset-inline-start: 0;
   inset-block: 10px;
-  width: 2px;
+  width: 3px;
   border-radius: 2px;
   background: var(--cloud-accent);
 }
@@ -189,7 +192,7 @@
   border-block-start: 1px solid var(--cloud-line);
 }
 
-.accountIdentity { padding-inline: 4px; }
+.accountIdentity { padding: 5px 4px; color: inherit; text-decoration: none; border-radius: 9px; min-block-size: 44px; }
 .accountIdentity > span:last-child { display: grid; min-inline-size: 0; gap: 3px; }
 .accountIdentity :is(strong, small) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .accountIdentity strong { font-size: .8125rem; font-weight: 650; }
@@ -209,8 +212,46 @@
 }
 
 .content { grid-area: content; min-inline-size: 0; }
-.content > :is(section, div) { max-width: none; padding: var(--cloud-gutter); }
+.content > :is(section, div) { max-width: 1680px; margin-inline: auto; padding: var(--cloud-gutter); }
 .content :global(.dt-head h1) { font-size: clamp(1.375rem, 1.1vw + .8125rem, 1.75rem); font-weight: 650; }
+.content :global(.dt-head) {
+  padding: clamp(15px, 2vw, 26px);
+  border: 1px solid var(--cloud-line);
+  border-radius: 18px;
+  background: linear-gradient(110deg, color-mix(in srgb, var(--cloud-accent) 5%, var(--cloud-surface)), var(--cloud-surface) 52%);
+  box-shadow: var(--cloud-shadow);
+}
+.content :global(.hs-card), .content :global(.dt-empty) {
+  border-color: var(--cloud-line);
+  border-radius: 16px;
+  box-shadow: var(--cloud-shadow);
+}
+.content :global(.hs-panel) {
+  border-color: var(--cloud-line);
+  background: var(--cloud-surface);
+  border-radius: 17px;
+  box-shadow: var(--cloud-shadow);
+}
+.content :global(.ticket-hero), .content :global(.ticket-list-pane), .content :global(.ticket-main-pane), .content :global(.ticket-stats) > div {
+  border-color: var(--cloud-line);
+  border-radius: 17px;
+  box-shadow: var(--cloud-shadow);
+}
+.content :global(.cw-hero) {
+  border-color: var(--cloud-line);
+  background: radial-gradient(ellipse at 80% 0%, color-mix(in srgb, var(--cloud-accent) 14%, transparent), transparent 64%), var(--cloud-surface);
+  box-shadow: var(--cloud-shadow);
+}
+.content :global(.hs-hero:not(.is-skeleton)) {
+  border-color: var(--cloud-line);
+  background: radial-gradient(ellipse at 75% 0%, color-mix(in srgb, var(--cloud-accent) 12%, transparent), transparent 64%), var(--cloud-surface);
+  border-radius: 19px;
+  box-shadow: var(--cloud-shadow);
+}
+.content :global(.cl-head-icon), .content :global(.hs-card-icon) {
+  background: color-mix(in srgb, var(--cloud-accent) 11%, var(--cloud-surface));
+  color: color-mix(in srgb, var(--cloud-accent) 68%, var(--cloud-text));
+}
 .content :global(.dt-balance) {
   color: var(--cloud-text);
   border: 1px solid var(--cloud-line);
@@ -274,6 +315,7 @@
     color: var(--cloud-text);
   }
   .crumbs a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .accountIdentity:hover { background: var(--cloud-hover); }
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -292,6 +334,7 @@
   .shell { --cloud-header: 60px; --cloud-gutter: 16px; }
   .header, .headerStart { gap: 8px; }
   .crumbs { font-size: .8125rem; gap: 4px; }
+  .headerActions > a { display: none; }
   .footer { padding-block: 8px; }
 }
 

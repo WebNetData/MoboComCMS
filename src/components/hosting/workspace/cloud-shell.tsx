@@ -12,16 +12,16 @@ import CloudDrawer from './cloud-drawer'
 import { cloudDashboardPath, cloudMenuLabel } from './cloud-menu'
 import s from './cloud-shell.module.css'
 
-function CloudAccount() {
+function CloudAccount({ onNavigate }: { onNavigate?: () => void }) {
   const { data: session } = useSession()
   const user = session?.user as (NonNullable<typeof session>['user'] & { phone?: string | null }) | undefined
   const displayName = user?.name?.trim() || 'حساب موبوکام'
   const accountDetail = user?.phone || user?.email
   return <div className={s.account}>
-    <div className={s.accountIdentity}>
+    <Link href={cloudDashboardPath + '/account'} className={s.accountIdentity} onClick={onNavigate}>
       <span className={s.avatar} aria-hidden="true">{displayName[0]}</span>
       <span><strong dir="auto">{displayName}</strong>{accountDetail && <small dir="ltr">{accountDetail}</small>}</span>
-    </div>
+    </Link>
     <button type="button" className={s.control} title="خروج از حساب" aria-label="خروج از حساب" onClick={() => void signOut({ callbackUrl: '/cloud' })}>
       <Icon name="logout" size={18} />
     </button>
@@ -48,7 +48,10 @@ export default function CloudShell({ children, locale, theme, name }: { children
           <span aria-current="page">{cloudMenuLabel(path)}</span>
         </nav>
       </div>
-      <ThemeLangControls locale={locale} theme={theme} compact />
+      <div className={s.headerActions}>
+        <Link href={cloudDashboardPath + '/support'} className={s.control} title="پشتیبانی ابری" aria-label="پشتیبانی ابری"><Icon name="ticket" size={18} /></Link>
+        <ThemeLangControls locale={locale} theme={theme} compact />
+      </div>
     </header>
     <aside className={s.sidebar} aria-label="منوی کناری پنل ابری">
       <Link href={cloudDashboardPath} className={s.brand}>
@@ -61,7 +64,7 @@ export default function CloudShell({ children, locale, theme, name }: { children
     <main id="cloud-content" className={s.content} tabIndex={-1}>{children}</main>
     <CloudDrawer open={open} onClose={close} name={name}>
       <CloudNavigation path={path} choice={groups.choice} onToggle={groups.toggle} onNavigate={close} shown={open} />
-      <CloudAccount />
+      <CloudAccount onNavigate={close} />
     </CloudDrawer>
     <footer className={s.footer}><Link href="/cloud">صفحهٔ اصلی ابر</Link></footer>
   </div>
