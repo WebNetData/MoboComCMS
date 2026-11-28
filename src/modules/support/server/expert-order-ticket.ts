@@ -3,6 +3,7 @@ import { richTextToPlain, sanitizeMessage } from '@/shared/content/sanitize'
 import { EXPERT_AUTHENTICATION_REQUEST, EXPERT_TICKET_SECURITY, type ExpertOrderTicket } from '@/modules/support/domain/expert-order-ticket'
 import { notifyTicketReply, persistTicketReply } from '@/modules/support/server/ticket-reply'
 import { ticketWorkflowSelect } from '@/modules/support/server/ticket-workflow'
+import { recordExpertWorkWait } from '@/modules/support/server/expert-work-wait'
 
 type TicketReader = Pick<Prisma.TransactionClient, 'ticket'>
 type Context = { key: `store:${number}` | `form:${number}`; orderId: number; userId: number; productId?: number }
@@ -84,6 +85,7 @@ export async function writeExpertOrderTicket(tx: Prisma.TransactionClient, conte
     },
     select: { id: true, messages: { select: { id: true }, take: 1 } },
   })
+  await recordExpertWorkWait(tx, { id: ticket.id, status: 'OPEN', lastStaffAt: null, expertRequestKey: context.key, orderId: context.orderId }, 'PENDING', now, actorId)
   await notifyTicketReply(ticket.id, context.userId, ticket.messages[0].id, tx)
   return { id: ticket.id, created: true, sent: true }
 }

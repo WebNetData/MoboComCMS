@@ -1,24 +1,19 @@
 import { Prisma } from '@prisma/client'
-import { createHash } from 'node:crypto'
 import type { TransferMonitor } from '@/modules/billing/domain/pay-transfer-operations'
 import { payContext, payTransaction, type PayActor } from '../context'
-import { sourceOwner } from '../bale/access'
-import { smsCredentialsReady } from '../bale/collection-context'
 import { bankAmountRange } from '@/modules/billing/domain/pay-bale-collection'
+import { requirePerm } from '@/modules/identity/server/access'
+import { smsInstanceId, smsObservations, smsRejections, smsSourceInclude, smsSourceSignal, smsWatchMs } from './sms-health'
 
-type Observed = { sourceType: string; smsSourceId: string | null; instanceId: string; last: Date; count: bigint; rejected: bigint; p95: number | null }
 export function transferMonitor(actor: PayActor): Promise<TransferMonitor> {
   return payTransaction(async tx => {
     const { settings } = await payContext(actor, tx, 'mobocom-pay.manage')
     const now = new Date(), since = new Date(now.getTime() - 86400000)
     const olderThanMinutes = 30
-    const [observations, sms, api, confirmations, awaitingReview, overdue, oldest, principals, receipts] = await Promise.all([
-      tx.$queryRaw<Observed[]>(Prisma.sql`SELECT "sourceType", "smsSourceId", "instanceId", max("receivedAt") AS last,
-        count(*) FILTER (WHERE "receivedAt">=${since}) AS count,
-        count(*) FILTER (WHERE "receivedAt">=${since} AND "status" IN ('REJECTED','CONFLICT')) AS rejected,
-        percentile_cont(0.95) WITHIN GROUP (ORDER BY GREATEST(0,EXTRACT(EPOCH FROM ("receivedAt"-"sourceSentAt"))*1000)) FILTER (WHERE "receivedAt">=${since} AND "code" NOT LIKE 'SMS_FORWARDER%') AS p95
-        FROM "PayBaleNotice" WHERE "sourceType"='SMS' GROUP BY "sourceType","smsSourceId","instanceId"`),
-      tx.paySmsSource.findMany({ orderBy: { createdAt: 'desc' }, take: 100, include: { bankAccount: { select: { active: true, collectionUse: true } } } }),
+    const [observations, rejections, sms, api, confirmations, awaitingReview, overdue, oldest, principals, receipts, canSeeInvoices] = await Promise.all([
+      smsObservations(tx, since),
+      smsRejections(tx, since),
+      tx.paySmsSource.findMany({ orderBy: { createdAt: 'desc' }, take: 100, include: smsSourceInclude }),
       tx.setting.findUnique({ where: { key: 'publicApiEnabled' } }),
       tx.$queryRaw<{ count: bigint; p50: number | null; p95: number | null }[]>(Prisma.sql`SELECT count(*) AS count,
         percentile_cont(0.5) WITHIN GROUP (ORDER BY GREATEST(0,EXTRACT(EPOCH FROM(c."paidAt"-n."sourceSentAt"))*1000)) FILTER (WHERE n."sourceType"='SMS' AND n."code" NOT LIKE 'SMS_FORWARDER%') AS p50,
@@ -32,13 +27,26 @@ export function transferMonitor(actor: PayActor): Promise<TransferMonitor> {
         where: { status: 'PENDING', createdAt: { lte: new Date(now.getTime() - olderThanMinutes * 60000) }, invoice: { kind: 'PAY_COLLECTION' } },
         _count: true, _min: { createdAt: true },
       }),
+      requirePerm(actor.req, 'invoices.manage', tx),
     ])
     const enabled = api?.value === 'true' && settings.bale.enabled
-    const sources: TransferMonitor['sources'] = []
-    const sourceView = (id: string, label: string, ready: boolean, observation?: Observed) => ({ id, label, type: 'SMS' as const, ready, observed: Boolean(observation && observation.last.getTime() >= now.getTime() - 900000), lastReceivedAt: observation?.last.toISOString() || null, notices: Number(observation?.count || 0n), rejected: Number(observation?.rejected || 0n), p95DeliveryMs: observation?.p95 === null || observation?.p95 === undefined ? null : Math.round(observation.p95) })
-    for (const s of sms) {
-      sources.push(sourceView(s.id, s.label, Boolean(enabled && s.active && s.verified && s.bankAccount.active && smsCredentialsReady(s) && await sourceOwner(s.ownerUserId, tx)), observations.find(o => o.smsSourceId === s.id && o.instanceId === createHash('sha256').update(`${s.id}:${s.version}`).digest('hex'))))
-    }
+    const invoiceScope = canSeeInvoices ? {} : { payCollection: { isNot: null } }
+    const sources: TransferMonitor['sources'] = await Promise.all(sms.map(async source => {
+      const instanceId = smsInstanceId(source)
+      const observation = observations.find(row => row.smsSourceId === source.id && row.instanceId === instanceId)
+      const signal = await smsSourceSignal(tx, source, enabled, now, invoiceScope, observation)
+      return {
+        id: source.id, label: source.label, type: 'SMS', ...signal,
+        observed: Boolean(observation && +observation.last >= +now - smsWatchMs),
+        lastReceivedAt: observation?.last.toISOString() ?? null,
+        lastValidAt: observation?.lastValid?.toISOString() ?? null,
+        notices: Number(observation?.count ?? 0n), rejected: Number(observation?.rejected ?? 0n),
+        p95DeliveryMs: observation?.p95 == null ? null : Math.round(observation.p95),
+        reasons: rejections.filter(row => row.smsSourceId === source.id && row.instanceId === instanceId)
+          .map(row => ({ code: row.code, count: row._count._all }))
+          .sort((a, b) => b.count - a.count || a.code.localeCompare(b.code)),
+      }
+    }))
     const pools = []
     for (const p of principals) {
       const { first, last, capacity } = bankAmountRange(p.principalRial, settings.bale)

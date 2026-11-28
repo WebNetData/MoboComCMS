@@ -245,7 +245,7 @@ async function currentRenewalReminderTimes(rows: { id: number; userId: number; n
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
   })
   for (const notification of notifications) {
-    const match = /^hosting:(\d+):due:[1-9]\d*:(.+)$/.exec(notification.dedupeKey)
+    const match = /^hosting:(\d+):due:(?:[1-9]\d*|manual):(.+)$/.exec(notification.dedupeKey)
     if (!match) continue
     const serviceId = Number(match[1])
     if (terms.get(serviceId)?.dueAt === match[2] && !reminders.has(serviceId)) {

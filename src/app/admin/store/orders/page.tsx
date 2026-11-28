@@ -1,5 +1,7 @@
 'use client'
 
+import ExpertWorkQueue from '@/components/support/ExpertWorkQueue'
+
 import Link from '@/components/AppLink'
 import { useRouter, useSearchParams } from '@/platform/routing/navigation'
 import { Suspense, useEffect, useState } from 'react'
@@ -11,7 +13,7 @@ type Row = {
   fulfilment: string; schedule: string; trackingCode: string; invoiceNumber: string; total: number; currency: string; items: number; physical: boolean
   preview: { name: string; image: string; quantity: number }[]
 }
-type List = { tab: string; page: number; pages: number; total: number; work: string; overdueHours: number; counts: Record<string, number>; workCounts: Record<string, number>; orders: Row[] }
+type List = { tab: string; page: number; pages: number; total: number; work: string; overdueHours: number; counts: Record<string, number>; workCounts: Record<string, number>; orders: Row[]; canManageExpertSla: boolean }
 
 const TABS = [['all', 'همه'], ['new', 'جدید'], ['processing', 'در حال آماده‌سازی'], ['shipped', 'ارسال‌شده'], ['delivered', 'تحویل‌شده'], ['unpaid', 'پرداخت‌نشده'], ['closed', 'لغو و مرجوعی']]
 
@@ -39,6 +41,7 @@ function Orders() {
     return hours < 24 ? `${fa(hours)} ساعت پیش` : `${fa(Math.floor(hours / 24))} روز پیش`
   }
   return <StoreShell title="سفارش‌های فروشگاه">
+    {data?.canManageExpertSla && <ExpertWorkQueue source="store" />}
     <nav className="sa-subtabs" aria-label="فیلترهای کار سفارش" role="group">{workFilters.map(([key, label]) => <button key={key || 'all'} type="button" className={key === work ? 'is-active' : ''} aria-pressed={key === work} onClick={() => go({ work: key })}>{label}<span className="num">{fa(data?.workCounts?.[key || 'all'] ?? 0)}</span></button>)}</nav>
     <nav className="sa-subtabs" aria-label="وضعیت سفارش">{TABS.map(([key, label]) => <button key={key} type="button" className={key === tab ? 'is-active' : ''} aria-pressed={key === tab} onClick={() => go({ tab: key })}>{label}{data?.counts[key] ? <span className="num">{fa(data.counts[key])}</span> : null}</button>)}</nav>
     <form className="sa-toolbar" role="search" onSubmit={(event) => { event.preventDefault(); go({ q: search.trim() }) }}>

@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import Link from '@/components/AppLink'
-import type { TransferMonitor } from '@/modules/billing/domain/pay-transfer-operations'
+import type { TransferMonitor, TransferSourceHealth } from '@/modules/billing/domain/pay-transfer-operations'
 import { api, money, date } from '../client'
 import { ErrorNotice } from '../shared'
 import s from '../Pay.module.css'
@@ -9,6 +9,39 @@ import o from './TransferOperations.module.css'
 
 const n = (value: number) => value.toLocaleString('fa-IR')
 const latency = (value: number | null) => value === null ? 'داده کافی نیست' : `${(value / 1000).toLocaleString('fa-IR', { maximumFractionDigits: 1 })} ثانیه`
+const healthLabels: Record<TransferSourceHealth['health'], string> = {
+  NOT_READY: 'منبع آماده نیست',
+  RECENT_VALID: 'پیام معتبر اخیر',
+  REJECTIONS: 'رد پیام در دریافت اخیر',
+  SILENT_BACKLOG: 'احتمال اختلال در دریافت',
+  UNKNOWN: 'اتصال زنده نامشخص',
+}
+const rejectionLabels: Record<string, string> = {
+  INVALID_CONFIG: 'الگوی نامعتبر',
+  INVALID_MESSAGE: 'پیام نامعتبر',
+  NO_UNIQUE_MATCH: 'عدم تطابق با الگوی پیامک',
+  INVALID_AMOUNT: 'مبلغ نامعتبر',
+  ACCOUNT_MISMATCH: 'شمارهٔ حساب نامعتبر یا مشترک',
+}
+
+function SmsSourceCard({ source }: { source: TransferSourceHealth }) {
+  return <article className={o.source}>
+    <div className={s.row}><h4>{source.label}</h4><span className={s.badge}>{healthLabels[source.health]}</span></div>
+    <dl className={o.facts}>
+      <div><dt>آخرین پیام معتبر</dt><dd>{source.lastValidAt ? date(source.lastValidAt) : 'هنوز ثبت نشده'}</dd></div>
+      <div><dt>آخرین دریافت ثبت‌شده</dt><dd>{source.lastReceivedAt ? date(source.lastReceivedAt) : 'هنوز پیامی ثبت نشده'}</dd></div>
+      <div><dt>دریافت / رد در ۲۴ ساعت</dt><dd>{n(source.notices)} / {n(source.rejected)}</dd></div>
+      <div><dt>تأخیر تحویل · صدک ۹۵</dt><dd>{latency(source.p95DeliveryMs)}</dd></div>
+    </dl>
+    {source.reasons.length > 0 && <ul aria-label="علت‌های رد پیام در ۲۴ ساعت">
+      {source.reasons.map(({ code, count }) => <li key={code}>{rejectionLabels[code.replace(/^SMS_FORWARDER_/, '')] ?? 'خطای ثبت‌شده'} · {n(count)}</li>)}
+    </ul>}
+    {source.affected > 0 && <Link href={`/admin/mobocom-pay/reconciliation?smsSource=${encodeURIComponent(source.id)}`} className={s.secondary}>
+      بررسی دستی رسیدهای وابسته ({n(source.affected)})
+    </Link>}
+  </article>
+}
+
 export default function TransferMonitor() {
   const [data, setData] = useState<TransferMonitor | null>(null), [reload, setReload] = useState(0), [error, setError] = useState(''), [loading, setLoading] = useState(true)
   useEffect(() => {
@@ -38,8 +71,11 @@ export default function TransferMonitor() {
           <div className={s.actions}><Link href="/admin/mobocom-pay/receipts" className={s.button}>بررسی رسیدها</Link><Link href="/admin/mobocom-pay/reconciliation" className={s.secondary}>میز مغایرت‌ها</Link></div>
         </section>
       </div>
-<section className={`${s.card} ${s.stack}`}><h3>منابع پیامک بانکی</h3><p className={s.muted}>آمادگی از تنظیمات و دسترسی فعلی محاسبه می‌شود. «آخرین پیام» زمان آخرین دریافت ثبت‌شده را نشان می‌دهد.</p>
-        <div className={o.sources}>{data.sources.map(source => <article key={source.id} className={o.source}><div className={s.row}><h4>{source.label}</h4><span className={s.badge}>{source.ready ? 'آمادهٔ دریافت' : 'نیازمند تنظیم'}</span></div><p className={s.muted}>{source.observed ? 'پیام در ۱۵ دقیقهٔ اخیر دریافت شده' : 'اتصال زنده نامشخص؛ ترافیک اخیر مشاهده نشده'}</p><dl className={o.facts}><div><dt>آخرین دریافت</dt><dd>{source.lastReceivedAt ? date(source.lastReceivedAt) : 'هنوز پیامی ثبت نشده'}</dd></div><div><dt>پیام / نامعتبر در ۲۴ ساعت</dt><dd>{n(source.notices)} / {n(source.rejected)}</dd></div><div><dt>تأخیر تحویل · صدک ۹۵</dt><dd>{latency(source.p95DeliveryMs)}</dd></div></dl></article>)}</div>
+      <section className={`${s.card} ${s.stack}`} aria-labelledby="pay-sms-health-title">
+        <h3 id="pay-sms-health-title">منابع پیامک بانکی</h3>
+        <p className={s.muted}>احتمال اختلال زمانی نمایش داده می‌شود که ۱۵ دقیقه پیام معتبری ثبت نشده و رسید وابسته در انتظار مانده باشد. آمار مربوط به تنظیمات فعلی هر منبع است.</p>
+        {!data.sources.length && <p className={s.emptyState}>منبع پیامکی ثبت نشده است.</p>}
+        <div className={o.sources}>{data.sources.map(source => <SmsSourceCard key={source.id} source={source} />)}</div>
         <Link href="/admin/mobocom-pay/settings" className={s.secondary}>تنظیم منابع تأیید خودکار</Link>
       </section>
       <section className={`${s.card} ${s.stack}`}><h3>ظرفیت مبلغ‌های یکتا</h3><p className={s.muted}>۱۲ مبلغ پایهٔ اخیر؛ رزروها در تمام حساب‌ها دائمی‌اند. انقضا ظرفیت را آزاد نمی‌کند. هشدار از ۱۰٪ ظرفیت باقی‌مانده نمایش داده می‌شود.</p>

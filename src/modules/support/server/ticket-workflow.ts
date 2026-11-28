@@ -3,6 +3,7 @@ import type { Ticket } from '@prisma/client'
 export const ticketWorkflowSelect = {
   id: true, department: true, status: true, assignedToId: true,
   firstResponseAt: true, lastStaffAt: true, lastCustomerAt: true, closedAt: true,
+  expertRequestKey: true, orderId: true,
 } as const
 
 // Compare workflow fields, so an unrelated internal note doesn't invalidate the decision.

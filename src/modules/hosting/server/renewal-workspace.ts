@@ -9,7 +9,7 @@ const RENEWAL_PREVIEW_LIMIT = 6
 type ServiceTerm = { id: number; nextDueAt: Date | null }
 
 /** Match only invoices for the same owner, service and still-current term. */
-export async function findCurrentRenewalInvoices(userId: number, services: ServiceTerm[], now: Date) {
+export async function findCurrentRenewalInvoices(userId: number, services: ServiceTerm[], now: Date, client: Pick<Prisma.TransactionClient, 'order'> = db) {
   const terms = new Map(services.flatMap(({ id, nextDueAt }) => nextDueAt ? [[id, nextDueAt.toISOString()] as const] : []))
   const found = new Map<number, RenewalInvoice>()
   if (!terms.size) return found
@@ -30,7 +30,7 @@ export async function findCurrentRenewalInvoices(userId: number, services: Servi
   let cursor: number | undefined
   const batchSize = 100
   do {
-    const rows = await db.order.findMany({
+    const rows = await client.order.findMany({
       where, orderBy: cursorOrder, take: batchSize,
       ...(cursor === undefined ? {} : { cursor: { id: cursor }, skip: 1 }),
       select: { id: true, meta: true, invoice: { select: { number: true, status: true } } },

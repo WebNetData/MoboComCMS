@@ -6188,6 +6188,32 @@ model PayBankEvent {
   @@index([status, createdAt])
 }
 
+model PayFinancialPeriod {
+  id String @id
+  fromDay String
+  toDay String
+  status String @default("REVIEW")
+  version Int @default(1)
+  reviewerId Int
+  discrepancyNote String @default("")
+  updatedAt DateTime @updatedAt
+  revisions PayFinancialPeriodRevision[]
+  @@unique([fromDay, toDay])
+}
+
+model PayFinancialPeriodRevision {
+  periodId String
+  version Int
+  actorId Int
+  reviewerId Int
+  action String
+  note String
+  snapshot String
+  createdAt DateTime @default(now())
+  period PayFinancialPeriod @relation(fields: [periodId], references: [id], onDelete: Restrict)
+  @@id([periodId, version])
+}
+
 model PaySettlementQuote {
   sourceCurrency String @default("IRR")
   sourceMinor BigInt @default(0)

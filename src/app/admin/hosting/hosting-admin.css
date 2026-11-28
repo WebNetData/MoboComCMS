@@ -52,3 +52,23 @@
 .hx-admin .hx-history { display: grid; gap: 8px; margin: 0; padding-inline-start: 18px; }
 .hx-admin .hx-history-row td { background: var(--bg-soft); }
 .hx-admin .hx-task { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-block-start: 6px; padding: 6px 8px; border-radius: 10px; background: color-mix(in srgb, var(--primary) 9%, var(--card)); font-size: 12px; }
+.hx-batch { margin: 12px 16px 16px; padding: 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--card); }
+.hx-batch-head, .hx-batch-actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 10px; }
+.hx-batch-actions { justify-content: flex-start; }
+.hx-batch h2, .hx-batch h3, .hx-batch p { margin: 0; }
+.hx-batch h2, .hx-batch h3 { font-size: 1rem; }
+.hx-batch .btn { min-height: 44px; }
+.hx-batch-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 12px; margin-block: 16px; }
+.hx-batch-results, .hx-batch-review { display: grid; gap: 12px; }
+.hx-batch-list, .hx-batch-outcomes ul, .hx-batch-delivery ul { list-style: none; padding: 0; margin: 0; }
+.hx-batch-recipient { display: flex; align-items: start; gap: 12px 24px; flex-wrap: wrap; padding: 12px 0; border-block-end: 1px solid var(--border); }
+.hx-batch-recipient-main { display: flex; gap: 8px; align-items: center; min-inline-size: 0; flex: 1 1 190px; }
+.hx-batch-recipient-main div, .hx-batch-invoice, .hx-batch-outcomes li, .hx-batch-delivery li { display: grid; gap: 4px; overflow-wrap: anywhere; }
+.hx-batch-recipient-main input { width: 20px; height: 20px; flex: 0 0 auto; }
+.hx-batch-invoice, .hx-batch-delivery, .hx-batch-outcomes li span { color: var(--muted); font-size: .875rem; }
+.hx-batch-invoice { flex: 1 1 165px; }
+.hx-batch-delivery { display: grid; gap: 8px; flex: 2 1 100%; }
+.hx-batch-delivery ul, .hx-batch-outcomes ul { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: 8px; }
+.hx-batch-delivery li, .hx-batch-outcomes li { border: 1px solid var(--border); border-radius: 9px; padding: 10px; }
+.hx-batch-delivery strong, .hx-batch-outcomes strong { color: var(--text); }
+.hx-batch-outcomes { display: grid; gap: 8px; }

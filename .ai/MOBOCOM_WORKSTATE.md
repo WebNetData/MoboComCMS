@@ -1871,6 +1871,12 @@ Continue `.mobocom/pay-private-api-access` on
 `fix/pay-multi-card-auto-transfer`, based on `31de50f0`.
 [Configuration and evidence](../docs/agent/handoffs/MOBOCOM_PAY.md#multi-card-sms-confirmation--2026-11-28).
 
+# Operations controls — 2026-11-28
+
+Continue `.mobocom/pay-private-api-access` on
+`feat/operations-controls-pack` from merged PR #526 (`31de50f0`).
+[Scope and operation](../docs/specs/operations-controls/scenario.md).
+
 # Pay, expert orders and Cloud renewal operations — 2026-11-28
 
 Continue `.mobocom/pay-private-api-access` on
