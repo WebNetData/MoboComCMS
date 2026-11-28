@@ -18,6 +18,7 @@ import { queueFormStageSms } from './stage-sms'
 import { assertRepairStage, repairEvent, repairWorkView } from './repair-work'
 import { eligibleRepair } from './repair-access'
 import { customerRepairWork } from '../domain/repair-work'
+import { findExpertOrderTicketIds } from '@/modules/support/server/expert-order-ticket'
 
 // Paid forms and the work on an answer: the bill, the payment through the site's own checkout,
 // the secrets a sender hands over, and the stage staff move an answer through.
@@ -292,8 +293,10 @@ export async function tellSender(row: { id: number; title: string; data: string;
 export async function myRequests(userId: number) {
   if (!await formsAvailable()) return []
   const rows = await db.formSubmission.findMany({ where: { userId, status: { not: 'SPAM' } }, orderBy: { createdAt: 'desc' }, take: 60, include: { form: true } })
+  const expertTickets = await findExpertOrderTicketIds(db, userId, rows.filter(row => row.orderId !== null).map(row => `form:${row.id}` as const))
   return Promise.all(rows.map(async (row) => ({
     id: row.id, form: row.form.title, slug: row.form.slug, createdAt: row.createdAt.toISOString(),
+    expertTicketId: expertTickets.get(`form:${row.id}`) ?? null,
     answers: parse<StoredAnswer[]>(row.data, []).map((answer) => ({ label: answer.label, type: answer.type || 'text', value: (answer.type === 'file' || answer.type === 'signature') && Array.isArray(answer.value) ? `${answer.value.length.toLocaleString('fa-IR')} فایل` : answer.value })),
     amount: row.amountMinor > 0n ? minorToNumber(row.amountMinor, row.currency || FORM_CURRENCY) : 0, currency: row.currency || FORM_CURRENCY,
     lines: parse<PriceLine[]>(row.pricing || '[]', []), payStatus: row.payStatus, paidAt: row.paidAt?.toISOString() || null,

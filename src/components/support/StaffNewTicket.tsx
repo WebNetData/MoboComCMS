@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 type Department = [slug: string, name: { fa: string; en: string }]
 
 /**
- * A member of staff opens a ticket to a customer: to ask for a one-time code, a missing detail of an order, anything.
+ * A member of staff opens a ticket to a customer to request a missing detail or an action.
  * `?new=1&user=…&subject=…` on the desk's address opens it filled in (the order page links here).
  */
 export default function StaffNewTicket({ departments, fa, onCreated }: { departments: Department[]; fa: boolean; onCreated: (id: number) => void }) {
@@ -44,10 +44,10 @@ export default function StaffNewTicket({ departments, fa, onCreated }: { departm
   return <div className="stk">
     <button type="button" className="btn btn-primary stk-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? L('Close', 'بستن') : L('+ New ticket to a customer', '+ تیکت جدید به کاربر')}</button>
     {open && <form className="stk-form" onSubmit={send}>
-      <p className="stk-lead">{L('The customer sees this among their tickets and is told in their inbox. Use it to ask for a one-time code or a missing detail.', 'کاربر این تیکت را در فهرست تیکت‌های خودش می‌بیند و در صندوق پیام‌هایش خبردار می‌شود. برای خواستن کد یک‌بارمصرف یا اطلاعاتِ کمِ یک سفارش از همین استفاده کنید.')}</p>
+      <p className="stk-lead">{L('The customer sees this among their tickets and is notified in their inbox. Ask for the required detail or action. Never ask for a password or sign-in code.', 'کاربر این تیکت را در فهرست تیکت‌های خودش می‌بیند و از طریق صندوق پیام باخبر می‌شود. جزئیات یا اقدام لازم را درخواست کنید و رمز عبور یا کد ورود نخواهید.')}</p>
       <div className="stk-grid">
         <label><span>{L('Customer', 'کاربر')}</span><input className="input" required value={user} onChange={(e) => setUser(e.target.value)} placeholder={L('Account number, e-mail or phone', 'شناسهٔ کاربر، ایمیل یا شماره موبایل')} dir="auto" /></label>
-        <label><span>{L('Subject', 'موضوع')}</span><input className="input" required maxLength={200} value={subject} onChange={(e) => setSubject(e.target.value)} placeholder={L('e.g. The one-time code of your order', 'مثلاً: کد یک‌بارمصرف سفارش شما')} /></label>
+        <label><span>{L('Subject', 'موضوع')}</span><input className="input" required maxLength={200} value={subject} onChange={(e) => setSubject(e.target.value)} placeholder={L('e.g. Details needed for your order', 'برای نمونه، تکمیل اطلاعات سفارش')} /></label>
         <label><span>{L('Department', 'دپارتمان')}</span><select className="input" value={department} onChange={(e) => setDepartment(e.target.value)}>{list.map(([slug, name]) => <option key={slug} value={slug}>{fa ? name.fa : name.en}</option>)}</select></label>
         <label><span>{L('Priority', 'اولویت')}</span><select className="input" value={priority} onChange={(e) => setPriority(e.target.value)}><option value="low">{L('Low', 'کم')}</option><option value="normal">{L('Normal', 'عادی')}</option><option value="high">{L('High', 'فوری')}</option></select></label>
         <label className="is-wide"><span>{L('Message', 'متن پیام')}</span><textarea className="input" required rows={5} maxLength={6000} value={message} onChange={(e) => setMessage(e.target.value)} placeholder={L('What do you need from the customer?', 'از کاربر چه می‌خواهید؟')} dir="auto" /></label>

@@ -15,6 +15,7 @@ const load = loadSource(mocks)
 const surface = load('src/modules/checkout/domain/surface.ts')
 const access = load('src/modules/hosting/server/workspace-access.ts')
 const workspace = load('src/modules/hosting/server/workspace.ts')
+const renewalWorkspace = load('src/modules/hosting/server/renewal-workspace.ts')
 const put = async (key, value) => {
   if (!settings.has(key)) settings.set(key, await db.setting.findUnique({ where: { key } }))
   await db.setting.upsert({ where: { key }, create: { key, value: JSON.stringify(value) }, update: { value: JSON.stringify(value) } })
@@ -24,6 +25,71 @@ async function order(userId, invoiceUserId, meta, index) {
   const row = await db.order.create({ data: { userId, totalAmount: 1, totalMinor: 1n, currency: 'IRT', meta, idempotencyKey: `${stamp}-${index}` } })
   const invoice = await db.invoice.create({ data: { userId: invoiceUserId, orderId: row.id, number: `${stamp}-${index}`, total: 1, totalMinor: 1n, currency: 'IRT', title: 'Cloud test', detail: 'private-detail', notes: 'private-note' } })
   return { row, invoice }
+}
+
+async function verifyRenewals() {
+  const [owner, other] = users
+  const now = new Date('2026-11-28T10:00:00.000Z')
+  const nextDueAt = new Date('2026-12-02T10:00:00.000Z')
+  const wrongTerm = new Date('2026-11-02T10:00:00.000Z')
+  const service = (userId, suffix, overrides) => db.hostingService.create({
+    data: { userId, productId: product.id, label: `${stamp}-renewal-${suffix}`, cycle: 'MONTH',
+      priceMinor: 100n, status: 'ACTIVE', startedAt: wrongTerm, nextDueAt, ...overrides },
+  })
+  const [payable, paid, noInvoice, hourly, later, foreign] = await Promise.all([
+    service(owner.id, 'payable', { nextDueAt: new Date('2026-11-27T10:00:00.000Z'), status: 'SUSPENDED' }),
+    service(owner.id, 'paid'),
+    service(owner.id, 'new'),
+    service(owner.id, 'hourly', { cycle: 'HOURLY' }),
+    service(owner.id, 'later', { nextDueAt: new Date('2026-12-29T10:00:00.000Z') }),
+    service(other.id, 'foreign'),
+  ])
+  const renewMeta = (row, dueAt = row.nextDueAt, kind = 'hosting-renewal') =>
+    JSON.stringify({ kind, serviceId: row.id, dueAt: dueAt.toISOString() }, null, 2)
+  const valid = await order(owner.id, owner.id, renewMeta(payable), 'renewal-open')
+  const accepted = await order(owner.id, owner.id, renewMeta(paid), 'renewal-paid')
+  await db.$transaction([
+    db.order.update({ where: { id: accepted.row.id }, data: { status: 'PAID' } }),
+    db.invoice.update({ where: { id: accepted.invoice.id }, data: { status: 'PAID' } }),
+  ])
+  const obsolete = await order(owner.id, owner.id, renewMeta(noInvoice), 'renewal-expired')
+  await db.invoice.update({ where: { id: obsolete.invoice.id }, data: { expiresAt: now } })
+  await order(owner.id, owner.id, renewMeta(paid), 'renewal-newer-unpaid')
+  await order(owner.id, owner.id, renewMeta(payable, wrongTerm), 'renewal-old-term')
+  await order(owner.id, owner.id, renewMeta(payable, payable.nextDueAt, 'hosting-addon'), 'renewal-wrong-kind')
+  await order(owner.id, other.id, renewMeta(payable), 'renewal-foreign-invoice')
+  await order(other.id, owner.id, renewMeta(payable), 'renewal-foreign-order')
+  await order(owner.id, owner.id, renewMeta(foreign), 'renewal-foreign-service')
+  const result = await renewalWorkspace.cloudServiceRenewals(owner.id, now)
+  assert.equal(result.renewalsTotal, 3)
+  assert.deepEqual(result.renewals.map(row => row.id), [payable.id, ...[paid.id, noInvoice.id].sort((a, b) => a - b)])
+  assert(result.renewals.find(row => row.id === payable.id).overdue)
+  const byId = new Map(result.renewals.map(row => [row.id, row.invoice]))
+  assert.deepEqual(byId.get(payable.id), { number: valid.invoice.number, status: 'UNPAID' })
+  assert.deepEqual(byId.get(paid.id), { number: accepted.invoice.number, status: 'PAID' })
+  assert.equal(byId.get(noInvoice.id), null)
+  for (const row of [hourly, later, foreign]) assert(!byId.has(row.id))
+
+  const notice = (row, userId, days, dueAt, createdAt, kind = 'HOSTING') => ({
+    userId, kind, dedupeKey: `hosting:${row.id}:due:${days}:${dueAt}`,
+    titleEn: 'test', titleFa: 'تست', href: `/dashboard/services/${row.id}`, createdAt,
+  })
+  const latest = new Date('2026-11-26T12:00:00.000Z')
+  await db.userNotification.createMany({ data: [
+    notice(payable, owner.id, 3, payable.nextDueAt.toISOString(), new Date('2026-11-24T12:00:00.000Z')),
+    notice(payable, owner.id, 1, payable.nextDueAt.toISOString(), latest),
+    notice(payable, owner.id, 7, wrongTerm.toISOString(), now),
+    notice(paid, other.id, 7, paid.nextDueAt.toISOString(), now),
+    notice(noInvoice, owner.id, 7, noInvoice.nextDueAt.toISOString(), now, 'PAYMENT_PAID'),
+    notice(noInvoice, owner.id, 3, `2026-false:${noInvoice.nextDueAt.toISOString()}`, now),
+  ] })
+  const admin = load('src/modules/hosting/server/services.ts')
+  const queue = await admin.adminHostingServices({ status: 'RENEWALS', q: `${stamp}-renewal` }, now)
+  assert.equal(queue.total, 4)
+  assert.equal(queue.services[0].id, payable.id)
+  assert.equal(queue.services[0].renewalReminderAt, latest.toISOString())
+  assert(queue.services.slice(1).every(row => row.renewalReminderAt === null))
+  assert.equal((await admin.adminHostingServices({ status: 'ACTIVE', q: `${stamp}-renewal` }, now)).total, 5)
 }
 async function main() {
   try {
@@ -129,6 +195,7 @@ async function main() {
     assert(overview.activity.some(row => row.label === 'owned-service'))
     assert(!JSON.stringify(overview).includes('private-'))
     assert(!JSON.stringify(overview).includes('foreign-service'))
+    await verifyRenewals()
     console.log('Cloud workspace connected checks passed')
   } finally {
     try {

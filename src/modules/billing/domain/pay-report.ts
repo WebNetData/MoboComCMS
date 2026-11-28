@@ -5,6 +5,7 @@ export type PayReportDay = {
   platformFeeRial: string
   bankServiceFeeRial: string
   roundingRial: string
+  netRial: string
   creditedRial: string
   creditedUsdt: string
 }
@@ -22,4 +23,6 @@ export type PayFinancialReport = {
   totals: Omit<PayReportDay, 'date'>
   days: PayReportDay[]
   settlements: PayReportSettlement[]
+  terminalId: string | null
+  closing: { currency: 'IRR' | 'USDT'; credited: string; paid: string; difference: string }[]
 }

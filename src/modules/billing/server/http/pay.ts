@@ -91,10 +91,17 @@ async function financialReportResponse(req: NextRequest, actor: Awaited<ReturnTy
   const params = req.nextUrl.searchParams
   const report = await payFinancialReport(actor, scope, params)
   if (params.get('format') === 'csv') {
-    const settlements = params.get('section') === 'settlements'
-    const rows = settlements ? report.settlements.map(row => ({ from: report.from, to: report.to, ...row })) : report.days
-    const filename = `mobocom-pay-${settlements ? 'settlements' : 'daily'}-${report.from}-${report.to}.csv`
-    return csv(rows, rows.length, { filename, ...(settlements && { columns: ['from', 'to', 'currency', 'status', 'count', 'sourceAmount'] }) })
+    const section = params.get('section')
+    if (section === 'closing' || section === 'settlements') {
+      const closing = section === 'closing'
+      const rows = (closing ? report.closing : report.settlements).map(row => ({ from: report.from, to: report.to, ...row }))
+      const columns = closing
+        ? ['from', 'to', 'currency', 'credited', 'paid', 'difference']
+        : ['from', 'to', 'currency', 'status', 'count', 'sourceAmount']
+      return csv(rows, rows.length, { filename: `mobocom-pay-${section}-${report.from}-${report.to}.csv`, columns })
+    }
+    const rows = report.terminalId ? report.days.map(row => ({ terminalId: report.terminalId, ...row })) : report.days
+    return csv(rows, rows.length, { filename: `mobocom-pay-daily-${report.from}-${report.to}.csv` })
   }
   return apiOk(report)
 }

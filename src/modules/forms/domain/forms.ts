@@ -732,8 +732,8 @@ export const TEMPLATES: { id: string; name: string; description: string; build: 
       field('amount', 'مبلغی که باید پرداخت شود', 'fxamount', { required: true, step: 'amount', currencies: ['USD', 'EUR'], markupPercent: 5, markupFixed: 150000, min: 5, max: 2000 }),
       field('total', 'هزینهٔ سفارش شما', 'total', { step: 'amount' }),
       field('site', 'نشانی سایت', 'url', { required: true, step: 'account' }), field('username', 'نام کاربری یا ایمیل حساب', 'text', { required: true, step: 'account', width: 'half' }),
-      field('password', 'رمز عبور حساب', 'secret', { required: true, step: 'account', width: 'half' }), field('mobile', 'موبایل برای هماهنگی', 'mobile', { required: true, step: 'account' }),
-      field('details', 'توضیحات و اطلاعات حساب', 'textarea', { step: 'account' }),
+      field('mobile', 'موبایل برای هماهنگی', 'mobile', { required: true, step: 'account' }),
+      field('details', 'توضیحات سفارش', 'textarea', { step: 'account', placeholder: 'رمز عبور یا کد تأیید وارد نکنید.' }),
     ] }),
   },
   {

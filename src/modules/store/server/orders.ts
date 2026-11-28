@@ -369,6 +369,7 @@ export async function adminOrder(orderId: number, scope?: OrderWorkScope) {
     ...view,
     assigneeId: order.assigneeId,
     canWork: !scope || scope.manager || order.assigneeId === scope.actorId,
+    ownsExpertWork: Boolean(scope && order.assigneeId === scope.actorId && order.userId),
     manager: !scope || scope.manager,
     orderStatus: order.status,
     gateway: order.gateway?.name || order.provider,

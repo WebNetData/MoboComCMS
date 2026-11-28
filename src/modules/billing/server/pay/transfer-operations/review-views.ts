@@ -1,10 +1,38 @@
-import type { Prisma } from '@prisma/client'
+import type { PayBaleNotice, Prisma } from '@prisma/client'
 import { PayError } from '@/modules/billing/domain/pay'
-import { transferDifference, type TransferReviewDetail, type TransferReviewQueue } from '@/modules/billing/domain/pay-transfer-operations'
+import { transferDifference, type TransferReviewDetail, type TransferReviewQueue, type TransferQueueStage } from '@/modules/billing/domain/pay-transfer-operations'
+import { requirePerm } from '@/modules/identity/server/access'
 import { payContext, payTransaction, type PayActor } from '../context'
 import { collectionSourceActor } from '../bale/collection-proof'
 import { noticeInclude, reviewCollection } from './review-context'
 import { canApproveOwnPayReceipt } from '../receipt-review-access'
+
+function noticeView(notice: PayBaleNotice, candidate = false): TransferReviewDetail['notice'] {
+  if (notice.amountMinor == null) return null
+  return {
+    id: notice.id, source: notice.sourceType, amountRial: notice.amountMinor.toString(),
+    receivedAt: notice.receivedAt.toISOString(), sourceSentAt: notice.sourceSentAt.toISOString(),
+    timeBasis: notice.code.startsWith('SMS_FORWARDER_') ? 'SERVER_RECEIPT' : notice.sourceType === 'SMS' ? 'PHONE_RECEIPT' : 'SOURCE_MESSAGE',
+    candidate,
+  }
+}
+
+async function receiptNoticeCandidate(tx: Prisma.TransactionClient, row: Awaited<ReturnType<typeof reviewCollection>>) {
+  if (row.invoice.status !== 'UNPAID' || !row.acceptedAt || !row.sourceBindings.includes(smsBindingPrefix)) return null
+  const notices = await tx.payBaleNotice.findMany({
+    where: {
+      bankAccountId: row.bankAccountId, sourceType: 'SMS', direction: 'CREDIT', status: 'ORIGINAL_TRANSFER',
+      amountMinor: row.collectedRial, collectionMatch: null, transferReview: null,
+      receivedAt: { gte: row.createdAt }, sourceSentAt: { gte: new Date(Math.max(+row.acceptedAt, +row.validFrom)) },
+    },
+    orderBy: [{ receivedAt: 'desc' }, { id: 'desc' }], take: 10,
+  })
+  for (const notice of notices) {
+    try { await collectionSourceActor(tx, row, notice); return notice }
+    catch (error) { if (!(error instanceof PayError)) throw error }
+  }
+  return null
+}
 
 async function receiptActions(tx: Prisma.TransactionClient, actor: PayActor, row: Awaited<ReturnType<typeof reviewCollection>> | null) {
   if (!row || row.receipt?.status !== 'PENDING') return { canReviewReceipt: false, canRejectReceipt: false, requiresTrackingCode: false }
@@ -27,19 +55,55 @@ export function transferReviewQueue(actor: PayActor, params: URLSearchParams): P
     const page = Math.max(1, Math.min(10000, Math.trunc(Number(params.get('page'))) || 1))
     const closed = params.get('closed') === 'true'
     const receiptsPage = Math.max(1, Math.min(10000, Math.trunc(Number(params.get('receiptsPage'))) || 1))
+    const now = new Date()
+    const stage = params.get('stage')
+    const invoiceScope = await requirePerm(actor.req, 'invoices.manage', tx) ? {} : { payCollection: { isNot: null } }
+    const stageWhere = transferQueueWhere(now)
     const where: Prisma.PayBaleNoticeWhereInput = { status: 'ORIGINAL_TRANSFER', direction: 'CREDIT', ...(closed ? { transferReview: { status: { in: ['CONFIRMED','DISMISSED'] } } } : {
       AND: [{ OR: [{ transferReview: null }, { transferReview: { status: 'OPEN' } }] }, { OR: [{ collectionMatch: null }, { collectionMatch: { status: { not: 'PAID' } } }] }],
     }) }
-    const receiptWhere: Prisma.PayBaleCollectionWhereInput = { OR: [{ status: { in: ['UNDER_REVIEW','REVIEW'] } }, { receipt: { status: 'PENDING' } }] }
+    const receiptWhere: Prisma.PayBaleCollectionWhereInput = {
+      invoice: invoiceScope,
+      OR: stage === 'WAITING_RECEIPT' || stage === 'WAITING_SMS' || stage === 'REVIEW'
+        ? [stageWhere[stage]] : Object.values(stageWhere),
+    }
     const [total, rows, receipts, receiptsTotal] = await Promise.all([
       tx.payBaleNotice.count({ where }),
       tx.payBaleNotice.findMany({ where, include: noticeInclude, orderBy: [{ receivedAt: 'desc' },{ id: 'desc' }], skip: (page - 1) * 25, take: 25 }),
-      tx.payBaleCollection.findMany({ where: receiptWhere, include: { invoice: { select: { number: true } } }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], skip: (receiptsPage - 1) * 25, take: 25 }),
+      tx.payBaleCollection.findMany({ where: receiptWhere, include: { invoice: { select: { number: true, status: true } } }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], skip: (receiptsPage - 1) * 25, take: 25 }),
       tx.payBaleCollection.count({ where: receiptWhere }),
     ])
     return { page, pages: Math.max(1, Math.ceil(total / 25)), total, receiptsPage, receiptsPages: Math.max(1, Math.ceil(receiptsTotal / 25)), receiptsTotal, items: rows.map(n => ({ id: n.id, source: n.sourceType, amountRial: n.amountMinor!.toString(), receivedAt: n.receivedAt.toISOString(), invoiceNumber: n.collectionMatch?.invoice.number || null, status: (n.transferReview?.status || 'OPEN') as 'OPEN' | 'DISMISSED' | 'CONFIRMED', reason: n.collectionMatch?.reviewReason || 'UNMATCHED' })),
-      receipts: receipts.map(c => ({ id: c.id, invoiceNumber: c.invoice.number, status: c.status, reason: c.reviewReason, receiptId: c.receiptId, createdAt: c.createdAt.toISOString() })) }
+      receipts: receipts.map(c => ({
+        id: c.id, invoiceNumber: c.invoice.number, status: c.status, reason: c.reviewReason,
+        receiptId: c.receiptId, createdAt: c.createdAt.toISOString(), totalRial: c.collectedRial.toString(),
+        stage: c.status === 'PENDING' ? 'WAITING_RECEIPT' : c.status === 'UNDER_REVIEW' && !c.noticeId && c.expiresAt > now && c.sourceTypes.includes('"SMS"') && c.sourceBindings.includes(smsBindingPrefix) && c.receiptId && c.invoice.status === 'UNPAID' ? 'WAITING_SMS' : 'REVIEW',
+      })) }
   })
+}
+
+// The quote owner serializes each frozen SMS binding as an object in this array.
+const smsBindingPrefix = '"sms":[{'
+
+function transferQueueWhere(now: Date): Record<TransferQueueStage, Prisma.PayBaleCollectionWhereInput> {
+  const waitingSms: Prisma.PayBaleCollectionWhereInput = {
+    noticeId: null, receiptId: { not: null }, expiresAt: { gt: now },
+    sourceTypes: { contains: '"SMS"' }, sourceBindings: { contains: smsBindingPrefix }, invoice: { status: 'UNPAID' },
+  }
+  return {
+    WAITING_RECEIPT: {
+      status: 'PENDING', activeInvoiceId: { not: null }, acceptedAt: { not: null }, receiptId: null, expiresAt: { gt: now },
+      invoice: { status: 'UNPAID', payCollection: { isNot: null } },
+    },
+    WAITING_SMS: { status: 'UNDER_REVIEW', ...waitingSms },
+    REVIEW: {
+      OR: [
+        { status: 'REVIEW' },
+        { status: 'UNDER_REVIEW', NOT: waitingSms },
+        { status: 'PAID', receipt: { status: 'PENDING' } },
+      ],
+    },
+  }
 }
 
 export function transferReviewDetail(actor: PayActor, id: string): Promise<TransferReviewDetail> {
@@ -56,7 +120,7 @@ export function transferReviewDetail(actor: PayActor, id: string): Promise<Trans
       else { try { await collectionSourceActor(tx, c, notice) } catch (error) { if (error instanceof PayError) canConfirm = false; else throw error } }
     }
     const history = await tx.auditLog.findMany({ where: { targetType: 'mobocom-pay', OR: [{ targetId: 'transfer-review:' + id }, ...(c ? [{ targetId: c.id }] : [])] }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 50 })
-    return { notice: { id, source: notice.sourceType, amountRial: notice.amountMinor.toString(), receivedAt: notice.receivedAt.toISOString(), sourceSentAt: notice.sourceSentAt.toISOString(), timeBasis: notice.code.startsWith('SMS_FORWARDER_') ? 'SERVER_RECEIPT' : notice.sourceType === 'SMS' ? 'PHONE_RECEIPT' : 'SOURCE_MESSAGE' }, version: record?.version || 0, status: (record?.status || 'OPEN') as TransferReviewDetail['status'], difference: transferDifference(notice.amountMinor, c?.collectedRial ?? null), deltaRial: c ? (notice.amountMinor - c.collectedRial).toString() : null, canConfirm, ...await receiptActions(tx, actor, c),
+    return { notice: noticeView(notice), version: record?.version || 0, status: (record?.status || 'OPEN') as TransferReviewDetail['status'], difference: transferDifference(notice.amountMinor, c?.collectedRial ?? null), deltaRial: c ? (notice.amountMinor - c.collectedRial).toString() : null, canConfirm, ...await receiptActions(tx, actor, c),
       collection: c ? { id: c.id, invoiceNumber: c.invoice.number, status: c.status, invoiceStatus: c.invoice.status, totalRial: c.collectedRial.toString(), principalRial: c.principalRial.toString(), expiresAt: c.expiresAt.toISOString(), reason: c.reviewReason, receipt: c.receipt ? { id: c.receipt.id, status: c.receipt.status, amountRial: c.receiptAmountRial!.toString(), imageUrl: c.invoice.payCollection ? `/api/pay/receipt-image/${c.receipt.id}` : `/api/receipts/${c.receipt.id}/image`, note: c.receipt.adminNote } : null } : null,
       history: history.map(h => { let note = ''; try { const meta = JSON.parse(h.metadata); if (typeof meta.note === 'string') note = meta.note } catch {} return { id: h.id, actorId: h.actorUserId, action: h.action, note, createdAt: h.createdAt.toISOString() } }) }
   })
@@ -81,9 +145,19 @@ export function transferCollectionReview(actor: PayActor, id: string): Promise<T
   return payTransaction(async tx => {
     await payContext(actor, tx, 'mobocom-pay.manage')
     const c = await reviewCollection(tx, actor, id)
-    const history = await tx.auditLog.findMany({ where: { targetType: 'mobocom-pay', targetId: c.id }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 50 })
-    return { notice: null, version: 0, status: 'OPEN', difference: 'UNASSIGNED', deltaRial: null, canConfirm: false, ...await receiptActions(tx, actor, c),
+    const notice = c.noticeId ? await tx.payBaleNotice.findUnique({ where: { id: c.noticeId }, include: { transferReview: true } }) : null
+    const candidate = !notice ? await receiptNoticeCandidate(tx, c) : null
+    const evidence = notice ?? candidate
+    const history = await tx.auditLog.findMany({
+      where: { targetType: 'mobocom-pay', targetId: { in: [c.id, ...(notice ? ['transfer-review:' + notice.id] : [])] } },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 50,
+    })
+    return { notice: evidence && noticeView(evidence, Boolean(candidate)), version: notice?.transferReview?.version ?? 0, status: (notice?.transferReview?.status || 'OPEN') as TransferReviewDetail['status'], difference: evidence?.amountMinor == null ? 'UNASSIGNED' : transferDifference(evidence.amountMinor, c.collectedRial), deltaRial: evidence?.amountMinor == null ? null : (evidence.amountMinor - c.collectedRial).toString(), canConfirm: false, ...await receiptActions(tx, actor, c),
       collection: { id: c.id, invoiceNumber: c.invoice.number, status: c.status, invoiceStatus: c.invoice.status, totalRial: c.collectedRial.toString(), principalRial: c.principalRial.toString(), expiresAt: c.expiresAt.toISOString(), reason: c.reviewReason, receipt: c.receipt ? { id: c.receipt.id, status: c.receipt.status, amountRial: c.receiptAmountRial!.toString(), imageUrl: c.invoice.payCollection ? `/api/pay/receipt-image/${c.receipt.id}` : `/api/receipts/${c.receipt.id}/image`, note: c.receipt.adminNote } : null },
-      history: history.map(h => ({ id: h.id, actorId: h.actorUserId, action: h.action, note: '', createdAt: h.createdAt.toISOString() })) }
+      history: history.map(h => {
+        let note = ''
+        try { const meta = JSON.parse(h.metadata); if (typeof meta.note === 'string') note = meta.note } catch {}
+        return { id: h.id, actorId: h.actorUserId, action: h.action, note, createdAt: h.createdAt.toISOString() }
+      }) }
   })
 }

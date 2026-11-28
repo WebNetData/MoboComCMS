@@ -3052,3 +3052,18 @@ Review delivery: [PR496](https://github.com/WebNetData/MoboComCMS/pull/496)
 targets main and remains open for owner review. Implementation commit 9857fad8;
 9763a43a preserves unrelated historical ledger/map formatting. Subsequent delivery
 record changes are documentation only. No merge or destination update was performed.
+## Payment follow-up and period closing — 2026-11-28
+
+- The Admin reconciliation desk filters accepted quotes awaiting a receipt,
+  receipts awaiting a configured SMS source and cases for manual review. A
+  validated early SMS can appear as an unlinked candidate. Receipt decisions
+  use the existing single-posting path.
+- Admin and merchant reports show contractual net amounts and reconcile
+  posted credit against completed settlements in the date range, per source
+  currency. The result describes period movement. The merchant terminal
+  filter scopes payments and the daily CSV. Wallet settlements are
+  merchant-level.
+- Connected checks cover receipt-before-SMS, SMS-before-receipt, manual
+  receipt and replay, terminal filtering and settlement totals. Edge verified
+  the staff queue and report, mobile merchant report, terminal selection,
+  CSV downloads and scoped accessibility.

@@ -5,6 +5,7 @@ import { STAGE_LABEL, STATUSES, STATUS_LABEL, answerText, type FormField, type S
 import type { Row, SavedForm } from './shared'
 import { WorkPanel } from './ProPanels'
 import { EditAndAssign, FieldStatsView } from './AdvancedPanels'
+import ExpertOrderTicket from '@/components/support/ExpertOrderTicket'
 
 type Stats = { series: { day: string; count: number }[]; counts: Record<string, number> }
 type Page = { rows: Row[]; total: number; page: number; pages: number; counts: Record<string, number>; work: Record<string, number>; steps?: { key: string; label: string }[] | null }
@@ -160,6 +161,9 @@ export default function Inbox({ formId, initialEntryId = null, fields, forms = [
           {!locked(row) && <>
             <EditAndAssign row={row} fields={fieldsOf(row)} manager={manager} api={api} onChanged={() => void load()} onNotice={onNotice} />
             <WorkPanel key={`${row.id}:${row.stage}:${row.reply.length}`} row={row} api={api} onChanged={() => void load()} onNotice={onNotice} />
+            {row.payStatus === 'PAID' && row.orderId && row.userId && row.assigneeId === me && row.status !== 'SPAM' ? (
+              <ExpertOrderTicket key={row.id} endpoint={`/api/admin/forms/submissions/${row.id}/expert-ticket`} writable={!!row.stage && !['DONE', 'REJECTED'].includes(row.stage)} />
+            ) : null}
             <h4 className="dk-title">یادداشت داخلی</h4>
             <textarea className="input" rows={2} maxLength={1000} aria-label="یادداشت داخلی" value={notes[row.id] ?? row.note} onChange={(e) => setNotes({ ...notes, [row.id]: e.target.value })} />
             <div className="sa-row-actions dk-actions">

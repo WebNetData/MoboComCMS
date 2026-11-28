@@ -208,7 +208,7 @@ export default function Dashboard({ initialView = "overview" }: { initialView?: 
             />
           )}
           {tab === 4 && <ApiGuide />}
-          {tab === 5 && <FinancialReport area="merchant" />}
+          {tab === 5 && <FinancialReport area="merchant" terminals={data.terminals} />}
           {tab === 6 && <BotOperations terminals={data.terminals} revision={revision} />}
           {tab === 7 && <Webhooks terminals={data.terminals} />}
         </>

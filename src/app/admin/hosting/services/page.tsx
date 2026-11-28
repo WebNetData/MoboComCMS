@@ -2,29 +2,49 @@
 
 import { useState } from 'react'
 import { cycleMeta, kindMeta } from '@/modules/hosting/domain/catalog'
-import { SERVICE_STATUS, type ServiceStatus } from '@/modules/hosting/domain/services'
+import { HOSTING_RENEWAL_HORIZON_DAYS, SERVICE_STATUS, type ServiceStatus } from '@/modules/hosting/domain/services'
 import { Notice, Pager, fa, faDate, send, useJson } from '../../store/shared'
 import { HostingShell, toman } from '../shared'
 
 type Action = { id: number; kind: string; status: string; actor: string; detail: string; error: string; createdAt: string }
 type Row = {
   id: number; label: string; status: string; cycle: string; hostname: string; ipv4: string; ipv6: string; panelUrl: string; loginUser: string; note: string
-  hasPassword: boolean; priceMinor: string; nextDueAt: string | null; createdAt: string; allowTraffic: boolean | null; allowUpgrade: boolean | null
+  hasPassword: boolean; priceMinor: string; nextDueAt: string | null; renewalReminderAt: string | null; createdAt: string; allowTraffic: boolean | null; allowUpgrade: boolean | null
   user: { id: number; email: string; name: string | null }; product: { kind: string; fulfillment: string; allowTraffic: boolean; allowUpgrade: boolean }; provider: { name: string } | null; actions: Action[]
 }
-type Data = { services: Row[]; page: number; pages: number; total: number; waiting: number; tasks: number }
+type Data = { services: Row[]; page: number; pages: number; total: number; waiting: number; tasks: number; renewalQueue: boolean }
 type Draft = { id: number; label: string; first: boolean; hostname: string; ipv4: string; ipv6: string; panelUrl: string; loginUser: string; password: string; note: string; allowTraffic: string; allowUpgrade: string }
 
 const ACTION: Record<string, string> = { TRAFFIC: 'ترافیک اضافه', UPGRADE: 'ارتقا', RENEW: 'تمدید', PROVISION: 'ساخت خودکار', DELIVER: 'تحویل', NOTE: 'به‌روزرسانی', SUSPEND: 'تعلیق', UNSUSPEND: 'رفع تعلیق', TERMINATE: 'حذف', REVEAL: 'نمایش رمز توسط مشتری' }
 const tri = (value: boolean | null) => (value === null ? '' : value ? 'on' : 'off')
 const fromTri = (value: string) => (value === 'on' ? true : value === 'off' ? false : null)
 
+function RenewalSummary({ total }: { total?: number }) {
+  return <p className="hx-renewal-intro">
+    سرویس‌های دوره‌ای که سررسیدشان گذشته یا تا {fa(HOSTING_RENEWAL_HORIZON_DAYS)} روز آینده است، از قدیمی‌ترین سررسید.
+    {total !== undefined && <strong>{fa(total)} سرویس</strong>}
+  </p>
+}
+
+function ServiceDueDate({ dueAt, reminderAt, showReminder }: { dueAt: string | null; reminderAt: string | null; showReminder: boolean }) {
+  return <>
+    {dueAt ? <>{showReminder && 'سررسید '}<time dateTime={dueAt}>{faDate(dueAt)}</time></> : '—'}
+    {showReminder && <span className="hx-renewal-reminder">
+      {reminderAt
+        ? <>یادآوری در صندوق ثبت شده<time dateTime={reminderAt}>{faDate(reminderAt, true)}</time></>
+        : 'یادآوری ثبت نشده'}
+    </span>}
+  </>
+}
+
 export default function HostingServicesPage() {
   const [status, setStatus] = useState('')
   const [q, setQ] = useState('')
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
-  const { data, error, reload } = useJson<Data>(`/api/admin/hosting/services?status=${status}&q=${encodeURIComponent(query)}&page=${page}`)
+  const renewalQueue = status === 'RENEWALS'
+  const { data: result, error, loading, reload } = useJson<Data>(`/api/admin/hosting/services?status=${status}&q=${encodeURIComponent(query)}&page=${page}`)
+  const data = result?.renewalQueue === renewalQueue ? result : null
   const [draft, setDraft] = useState<Draft | null>(null)
   const [open, setOpen] = useState<number | null>(null)
   const [notice, setNotice] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
@@ -84,24 +104,34 @@ export default function HostingServicesPage() {
       </div>
     </section>}
 
-    <section className="sa-card" aria-label="فهرست سرویس‌ها">
+    <section className="sa-card" aria-label="فهرست سرویس‌ها" aria-busy={loading}>
       <div className="hx-filters">
         <div className="hx-choice" role="group" aria-label="وضعیت"><div>
-          {[['', `همه${data ? ` (${fa(data.total)})` : ''}`], ...Object.entries(SERVICE_STATUS).map(([id, item]) => [id, id === 'PENDING' && data?.waiting ? `${item.label} (${fa(data.waiting)})` : item.label]), ['TASKS', `کارهای افزودنی${data?.tasks ? ` (${fa(data.tasks)})` : ''}`]].map(([id, label]) => <label key={id} className={status === id ? 'is-on' : ''}><input type="radio" name="status" checked={status === id} onChange={() => { setStatus(id); setPage(1) }} /><span>{label}</span></label>)}
+          {[['', `همه${!status && data ? ` (${fa(data.total)})` : ''}`], ['RENEWALS', 'سررسید و تمدید'], ...Object.entries(SERVICE_STATUS).map(([id, item]) => [id, id === 'PENDING' && data?.waiting ? `${item.label} (${fa(data.waiting)})` : item.label]), ['TASKS', `کارهای افزودنی${data?.tasks ? ` (${fa(data.tasks)})` : ''}`]].map(([id, label]) => <label key={id} className={status === id ? 'is-on' : ''} data-renewals={id === 'RENEWALS' ? '' : undefined}><input type="radio" name="status" checked={status === id} onChange={() => { setStatus(id); setPage(1) }} /><span>{label}</span></label>)}
         </div></div>
         <form role="search" onSubmit={(event) => { event.preventDefault(); setQuery(q); setPage(1) }}><input className="input" type="search" aria-label="جست‌وجو" placeholder="ایمیل، دامنه، آی‌پی یا شماره" value={q} onChange={(event) => setQ(event.target.value)} /></form>
       </div>
-      {data && !data.services.length && <div className="hx-empty"><h2>{status || query ? 'سرویسی با این شرایط نیست' : 'هنوز سرویسی فروخته نشده است'}</h2><p className="sa-hint">پس از پرداخت هر سفارش میزبانی، سرویس آن این‌جا ساخته می‌شود.</p></div>}
+      {renewalQueue && <RenewalSummary total={data?.total} />}
+      {renewalQueue && !data && !error && <p className="sa-hint" role="status">در حال دریافت سررسیدها…</p>}
+      {data && !data.services.length && <div className="hx-empty">
+        <h2>{renewalQueue ? 'سرویسی نیازمند تمدید نیست' : status || query ? 'سرویسی با این شرایط نیست' : 'هنوز سرویسی فروخته نشده است'}</h2>
+        {!renewalQueue && <p className="sa-hint">پس از پرداخت هر سفارش میزبانی، سرویس آن این‌جا ساخته می‌شود.</p>}
+      </div>}
       {data && data.services.length > 0 && <div className="sa-table-wrap"><table className="sa-table">
-        <thead><tr><th>سرویس</th><th>مشتری</th><th>دوره و مبلغ</th><th>تمدید</th><th>وضعیت</th><th><span className="sr-only">عملیات</span></th></tr></thead>
+        <thead><tr><th>{renewalQueue ? 'سرویس و سررسید' : 'سرویس'}</th><th>مشتری</th><th>دوره و مبلغ</th>{!renewalQueue && <th>تمدید</th>}<th>وضعیت</th><th><span className="sr-only">عملیات</span></th></tr></thead>
         <tbody>{data.services.map((row) => {
           const state = SERVICE_STATUS[row.status as ServiceStatus]
           const waiting = ['PENDING', 'PROVISIONING', 'FAILED'].includes(row.status)
           return [<tr key={row.id}>
-            <td><b>{row.label}</b> <span className="hx-spec">#{fa(row.id)}</span><div className="hx-spec" dir="ltr">{row.hostname || row.ipv4 || '—'}</div><div className="hx-spec">{kindMeta(row.product.kind)?.label} · {row.product.fulfillment === 'DRIVER' ? row.provider?.name || 'سامانه' : 'دستی'}</div></td>
+            <td>
+              <b>{row.label}</b> <span className="hx-spec">#{fa(row.id)}</span>
+              <div className="hx-spec" dir="ltr">{row.hostname || row.ipv4 || '—'}</div>
+              <div className="hx-spec">{kindMeta(row.product.kind)?.label} · {row.product.fulfillment === 'DRIVER' ? row.provider?.name || 'سامانه' : 'دستی'}</div>
+              {renewalQueue && <div className="hx-renewal-meta"><ServiceDueDate dueAt={row.nextDueAt} reminderAt={row.renewalReminderAt} showReminder /></div>}
+            </td>
             <td><span dir="ltr">{row.user.email}</span>{row.user.name && <div className="hx-spec">{row.user.name}</div>}</td>
             <td>{cycleMeta(row.cycle)?.label}<div className="hx-spec">{toman(row.priceMinor)}</div></td>
-            <td>{row.nextDueAt ? faDate(row.nextDueAt) : '—'}</td>
+            {!renewalQueue && <td><ServiceDueDate dueAt={row.nextDueAt} reminderAt={null} showReminder={false} /></td>}
             <td><span className={`sa-state ${state?.tone || ''}`}>{state?.label || row.status}</span>{row.actions.filter((action) => action.status === 'WAITING' && (action.kind === 'TRAFFIC' || action.kind === 'UPGRADE')).map((action) => <div key={action.id} className="hx-task"><span>{action.detail}</span><button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => void run({ op: 'complete-task', id: action.id }, 'کار انجام‌شده ثبت شد و به مشتری اطلاع داده شد.')}>اعمال شد</button></div>)}</td>
             <td><div className="hx-actions">
               {row.status !== 'TERMINATED' && <button type="button" className={`btn btn-sm ${waiting ? 'btn-primary' : 'btn-ghost'}`} onClick={() => edit(row)}>{waiting ? 'تحویل' : 'ویرایش'}</button>}
@@ -111,7 +141,7 @@ export default function HostingServicesPage() {
               <button type="button" className="btn btn-ghost btn-sm" aria-expanded={open === row.id} onClick={() => setOpen(open === row.id ? null : row.id)}>تاریخچه</button>
             </div></td>
           </tr>,
-          open === row.id && <tr key={`${row.id}-history`} className="hx-history-row"><td colSpan={6}>
+          open === row.id && <tr key={`${row.id}-history`} className="hx-history-row"><td colSpan={renewalQueue ? 5 : 6}>
             <ol className="hx-history">{row.actions.map((action) => <li key={action.id}><b>{ACTION[action.kind] || action.kind}</b> <span className="hx-spec">{action.actor === 'STAFF' ? 'کارشناس' : action.actor === 'CUSTOMER' ? 'مشتری' : 'سیستم'} · {faDate(action.createdAt, true)}{action.status === 'WAITING' ? ' · در انتظار' : action.status === 'FAILED' ? ' · ناموفق' : ''}</span>{(action.detail || action.error) && <div className="hx-spec">{action.error || action.detail}</div>}</li>)}</ol>
           </td></tr>]
         })}</tbody>
