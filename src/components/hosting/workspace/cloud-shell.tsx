@@ -5,6 +5,7 @@ import { signOut, useSession } from 'next-auth/react'
 import Link from '@/components/AppLink'
 import Icon from '@/components/site/Icon'
 import ThemeLangControls from '@/components/ThemeLangControls'
+import ProfilePortrait from '@/components/admin/ProfilePortrait'
 import { usePathname } from '@/platform/routing/navigation'
 import { useShellGroups } from '@/components/shell/ShellNav'
 import CloudNavigation from './cloud-navigation'
@@ -19,10 +20,10 @@ function CloudAccount({ onNavigate }: { onNavigate?: () => void }) {
   const accountDetail = user?.phone || user?.email
   return <div className={s.account}>
     <Link href={cloudDashboardPath + '/account'} className={s.accountIdentity} onClick={onNavigate}>
-      <span className={s.avatar} aria-hidden="true">{displayName[0]}</span>
+      <span className={s.avatar} aria-hidden="true"><ProfilePortrait image={user?.image || ''} name={displayName} /></span>
       <span><strong dir="auto">{displayName}</strong>{accountDetail && <small dir="ltr">{accountDetail}</small>}</span>
     </Link>
-    <button type="button" className={s.control} title="خروج از حساب" aria-label="خروج از حساب" onClick={() => void signOut({ callbackUrl: '/cloud' })}>
+    <button type="button" className={`${s.control} ${s.logout}`} title="خروج از حساب" aria-label="خروج از حساب" onClick={() => void signOut({ callbackUrl: '/cloud' })}>
       <Icon name="logout" size={18} />
     </button>
   </div>

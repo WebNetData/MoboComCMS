@@ -2,6 +2,23 @@
 
 ## Customer dashboard redesign — 2026-11-28
 
+### Navigation and account portrait
+
+The desktop sidebar and mobile drawer share the refreshed Cloud menu, with a
+prominent service-creation link, grouped destinations and a clearer current
+route. The account link uses the canonical session image and the existing
+`ProfilePortrait` component, which falls back to an initial if the image is
+missing or fails to load. The drawer keeps its native modal behavior and
+Escape focus restoration.
+
+Local Edge checks at 320, 390 and 1440 px covered both themes, profile image
+precedence over the Telegram fallback, broken-image fallback, keyboard
+expansion, account navigation from the drawer and scoped axe. The image
+network response was a synthetic fixture while the session and profile were
+read from PostgreSQL. The connected `cloud-workspace` suite and TypeScript
+passed. React Doctor reported the existing native dialog backdrop handler
+as an accessibility warning. Keyboard dismissal and focus were verified.
+
 Continued from main `16cfa69a` in `.mobocom/cloud-dashboard-local-tools`,
 branch `feat/cloud-dashboard-redesign`. The new dashboard uses a CSS network
 illustration, resource cards with actual active counts, a service list with
