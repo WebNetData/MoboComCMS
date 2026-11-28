@@ -22,6 +22,7 @@ export {
 export { payActor, payContext, payTransaction, type PayActor } from './pay/context'
 export { paySettings, bankFeedReady } from './pay/settings'
 export { payFinancialReport } from './pay/financial-report'
+export { payFinancialPeriod, changePayFinancialPeriod } from './pay/financial-period'
 export { creditPayInvoice } from './pay/credit'
 export { startPayGateway } from './pay/checkout-gateways'
 export { payGatewayOptions } from './pay/gateway-options'

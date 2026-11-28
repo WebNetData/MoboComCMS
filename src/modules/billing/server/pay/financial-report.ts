@@ -42,7 +42,10 @@ const amountView = (row: DayAmounts) => ({
 })
 
 export function payFinancialReport(actor: PayActor, scope: 'admin' | 'merchant', params: URLSearchParams): Promise<PayFinancialReport> {
-  return payTransaction(async tx => {
+  return payTransaction(tx => readPayFinancialReport(tx, actor, scope, params))
+}
+
+export async function readPayFinancialReport(tx: Prisma.TransactionClient, actor: PayActor, scope: 'admin' | 'merchant', params: URLSearchParams): Promise<PayFinancialReport> {
     if (actor.machine) throw new PayError('گزارش مالی به نشست کاربری نیاز دارد', 403)
     const merchant = scope === 'merchant' ? await merchantRead(actor, tx) : null
     if (scope === 'admin') await payContext(actor, tx, 'mobocom-pay.manage')
@@ -113,5 +116,4 @@ export function payFinancialReport(actor: PayActor, scope: 'admin' | 'merchant',
       return { currency, credited: minorToDecimal(credited, currency), paid: minorToDecimal(paid, currency), difference: minorToDecimal(credited - paid, currency) }
     })
     return { from, to, totals: amountView(totals), days, settlements, terminalId, closing }
-  })
 }

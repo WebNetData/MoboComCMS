@@ -12,7 +12,8 @@ export async function collectionSourceActor(tx: Prisma.TransactionClient, row: P
   if (notice.sourceType !== 'SMS' || !notice.smsSourceId) throw new PayError('این منبع پذیرش خودکار ندارد', 410, 'PAY_SOURCE_RETIRED')
   if (notice.status !== 'ORIGINAL_TRANSFER' || notice.direction !== 'CREDIT' || notice.amountMinor !== row.collectedRial || notice.bankAccountId !== row.bankAccountId)
     throw new PayError('مدرک واریز با مبلغ و مقصد درخواست برابر نیست', 409)
-  if (!(await isModuleEnabled('mobocom-pay', tx)) || (await tx.setting.findUnique({ where: { key: 'publicApiEnabled' } }))?.value !== 'true' || !(await paySettings.read(tx)).bale.enabled)
+  const settings = await paySettings.read(tx)
+  if (!(await isModuleEnabled('mobocom-pay', tx)) || (await tx.setting.findUnique({ where: { key: 'publicApiEnabled' } }))?.value !== 'true' || !settings.bale.enabled)
     throw new PayError('تأیید خودکار متوقف است', 503)
   const source = await tx.paySmsSource.findUnique({ where: { id: notice.smsSourceId } })
   const actor = source?.active && source.verified && source.bankAccountId === row.bankAccountId &&
@@ -24,9 +25,11 @@ export async function collectionSourceActor(tx: Prisma.TransactionClient, row: P
   const bank = await tx.bankAccount.findUnique({ where: { id: row.bankAccountId } })
   if (invoice.payCollection?.creditCurrency === 'USDT' && notice.code === 'SMS_FORWARDER_CREDIT') throw new PayError('برای نرخ قفل‌شده، مدرک زمان اصلی واریز یا رسید بررسی‌شده لازم است', 409, 'PAY_PURCHASE_TIME_REQUIRED')
   if (invoice.payCollection?.creditCurrency === 'USDT' && notice.sourceSentAt > invoice.payCollection.expiresAt) throw new PayError('اعلان واریز پس از انقضای نرخ خرید تتر است؛ نیاز به رسیدگی و بازگشت وجه دارد', 409, 'PAY_PURCHASE_LATE')
-  if (!invoice.gateway?.active || !bank?.active || bank.collectionUse !== 'MOBOCOM_PAY' || (invoice.payCollection && (!invoice.payCollection.merchant.baleAllowed || !invoice.payCollection.terminal.baleEnabled || invoice.payCollection.merchant.status !== 'ACTIVE' || !invoice.payCollection.terminal.active)))
+  if (!invoice.gateway?.active || !bank?.active || (!invoice.payCollection && bank.collectionUse !== 'MOBOCOM_PAY') ||
+      (invoice.payCollection && (!invoice.payCollection.merchant.baleAllowed || !invoice.payCollection.terminal.baleEnabled || invoice.payCollection.merchant.status !== 'ACTIVE' || !invoice.payCollection.terminal.active)))
     throw new PayError('دریافت این روش متوقف است', 503)
   const config = autoTransferConfig(invoice.gateway.config)
-  if (!config.autoVerify || config.autoBankAccountId !== row.bankAccountId) throw new PayError('تنظیمات روش تأیید تغییر کرده است', 503)
+  const ids = config.autoBankAccountId ? [config.autoBankAccountId] : settings.bankAccountIds
+  if (!config.autoVerify || !ids.includes(row.bankAccountId)) throw new PayError('تنظیمات روش تأیید تغییر کرده است', 503)
   return { actor, invoice }
 }

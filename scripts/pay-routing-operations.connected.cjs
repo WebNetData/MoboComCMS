@@ -94,6 +94,7 @@ async function main() {
   const search = await pay.botOperations(a, { q: 'order-first', terminalId: terminal.id, paymentStatus: 'PENDING', status: 'WAITING' }); assert.equal(search.total, 1); assert.equal(search.items[0].paymentId, id)
   assert.equal((await pay.botOperations(b)).total, 0); await assert.rejects(pay.botOperationDetail(b, delivery.id), e => e.status === 404)
   await pay.reportPayReference(id, 'ROUTEREF001'); const current = await db.payPayment.findUniqueOrThrow({ where: { id } })
+  await db.paymentReceipt.create({ data: { invoiceId: current.invoiceId, bankAccountId: bank.id, amountMinor: current.totalMinor, trackingCode: 'ROUTEREF001' } })
   await pay.acceptBankEvent({ providerId: 'fixture', externalId: stamp + '-event', bankAccountId: bank.id, transferReference: 'ROUTEREF001', amountRial: current.totalMinor.toString(), occurredAt: new Date().toISOString(), targetPaymentId: id }, stamp + '-event')
   let d = await db.payBotDelivery.findUniqueOrThrow({ where: { id: delivery.id } }); assert.equal(d.status, 'QUEUED')
   assert.equal(await db.walletTx.count({ where: { userId: a.id, type: 'PAY_CREDIT' } }), 1)

@@ -23,7 +23,7 @@ export function autoTransferConfig(input: unknown): AutoTransferConfig {
   const sources = raw.autoSources === undefined ? ['SMS'] : raw.autoSources
   if (!Array.isArray(sources) || sources.length > 2 || sources.some(v => v !== 'SMS' && v !== 'BALE') || new Set(sources).size !== sources.length || autoVerify && !sources.length) throw new PayError('منبع تأیید خودکار معتبر نیست')
   const id = raw.autoBankAccountId == null || raw.autoBankAccountId === '' ? null : Number(raw.autoBankAccountId)
-  if (id !== null && (!Number.isSafeInteger(id) || id < 1 || id > 2147483647) || autoVerify && id === null) throw new PayError('حساب تأیید خودکار را انتخاب کنید')
+  if (id !== null && (!Number.isSafeInteger(id) || id < 1 || id > 2147483647)) throw new PayError('حساب تأیید خودکار معتبر نیست')
   return { autoVerify, autoSources: ['SMS'], autoBankAccountId: id, autoDisplay: transferDisplay(raw.autoDisplay) }
 }
 export function isAutomaticTransfer(gateway: { provider: string; config?: string }) {

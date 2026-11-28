@@ -70,7 +70,7 @@ async function handlePOST(req: NextRequest) {
   const requestedProvider = String(b?.provider || 'PLISIO').toUpperCase()
   const provider = PROVIDERS.some((item) => item.key === requestedProvider) ? requestedProvider : 'PLISIO'
   const transfer = ['CARD_TRANSFER','MOBOCOM_PAY'].includes(provider) ? autoTransferConfig(b) : null
-  if (provider === 'MOBOCOM_PAY' && !transfer?.autoVerify) return err('درگاه موبوکام به حساب اختصاصی پیامک نیاز دارد')
+  if (provider === 'MOBOCOM_PAY' && !transfer?.autoVerify) return err('برای ثبت این نوع درگاه، تأیید خودکار را فعال کنید')
   const makeDefault = b?.isDefault === true
 
   const fiat = provider === 'FRENZYEX' ? 'TMN' : provider === 'CARD_TRANSFER' || provider === 'MELLAT' || provider === 'MOBOCOM_PAY' || isInstallmentGateway(provider) ? 'IRR' : normalizeCurrency(b?.fiat || 'USD')

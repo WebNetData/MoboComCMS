@@ -1,0 +1,8 @@
+.queue { min-inline-size: 0; padding: 12px; border: 1px solid var(--sds-color-border-default-default); border-radius: 12px; background: var(--sds-color-background-default-default); }
+.form { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 155px), 1fr)); align-items: end; margin-block: 16px; gap: 12px; }
+.form label { display: grid; gap: 6px; }
+.form input { min-inline-size: 0; inline-size: 100%; }
+.items { display: grid; gap: 8px; padding: 0; list-style: none; }
+.items > li { padding: 10px 14px; border-inline-start: 3px solid var(--primary); background: var(--sds-color-background-default-secondary); border-radius: 8px; }
+.items > li > span { margin-inline-start: 12px; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }

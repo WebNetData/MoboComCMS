@@ -6,6 +6,7 @@ import { payContext, payTransaction, type PayActor } from '../context'
 import { collectionSourceActor } from '../bale/collection-proof'
 import { noticeInclude, reviewCollection } from './review-context'
 import { canApproveOwnPayReceipt } from '../receipt-review-access'
+import { smsAffectedWhere, smsInstanceId, smsObservations, smsSourceInclude, smsSourceSignal } from './sms-health'
 
 function noticeView(notice: PayBaleNotice, candidate = false): TransferReviewDetail['notice'] {
   if (notice.amountMinor == null) return null
@@ -51,19 +52,34 @@ async function receiptActions(tx: Prisma.TransactionClient, actor: PayActor, row
 
 export function transferReviewQueue(actor: PayActor, params: URLSearchParams): Promise<TransferReviewQueue> {
   return payTransaction(async tx => {
-    await payContext(actor, tx, 'mobocom-pay.manage')
+    const { settings } = await payContext(actor, tx, 'mobocom-pay.manage')
     const page = Math.max(1, Math.min(10000, Math.trunc(Number(params.get('page'))) || 1))
     const closed = params.get('closed') === 'true'
     const receiptsPage = Math.max(1, Math.min(10000, Math.trunc(Number(params.get('receiptsPage'))) || 1))
     const now = new Date()
     const stage = params.get('stage')
+    const sourceId = params.get('smsSource')
     const invoiceScope = await requirePerm(actor.req, 'invoices.manage', tx) ? {} : { payCollection: { isNot: null } }
     const stageWhere = transferQueueWhere(now)
-    const where: Prisma.PayBaleNoticeWhereInput = { status: 'ORIGINAL_TRANSFER', direction: 'CREDIT', ...(closed ? { transferReview: { status: { in: ['CONFIRMED','DISMISSED'] } } } : {
+    const sms = sourceId && sourceId.length <= 64 ? await tx.paySmsSource.findUnique({
+      where: { id: sourceId }, include: smsSourceInclude,
+    }) : null
+    if (sourceId && !sms) throw new PayError('منبع پیامک بانکی پیدا نشد', 404)
+    let impact: Prisma.PayBaleCollectionWhereInput | undefined
+    if (sms) {
+      const [api, observed] = await Promise.all([
+        tx.setting.findUnique({ where: { key: 'publicApiEnabled' }, select: { value: true } }),
+        smsObservations(tx, new Date(+now - 86_400_000), sms.id),
+      ])
+      const signal = await smsSourceSignal(tx, sms, api?.value === 'true' && settings.bale.enabled, now, invoiceScope, observed.find(row => row.instanceId === smsInstanceId(sms)))
+      impact = smsAffectedWhere(sms, now, signal.health)
+    }
+    const where: Prisma.PayBaleNoticeWhereInput = { status: 'ORIGINAL_TRANSFER', direction: 'CREDIT', ...(sms && { smsSourceId: sms.id }), ...(closed ? { transferReview: { status: { in: ['CONFIRMED','DISMISSED'] } } } : {
       AND: [{ OR: [{ transferReview: null }, { transferReview: { status: 'OPEN' } }] }, { OR: [{ collectionMatch: null }, { collectionMatch: { status: { not: 'PAID' } } }] }],
     }) }
     const receiptWhere: Prisma.PayBaleCollectionWhereInput = {
       invoice: invoiceScope,
+      AND: impact ? [impact] : [],
       OR: stage === 'WAITING_RECEIPT' || stage === 'WAITING_SMS' || stage === 'REVIEW'
         ? [stageWhere[stage]] : Object.values(stageWhere),
     }
@@ -73,7 +89,7 @@ export function transferReviewQueue(actor: PayActor, params: URLSearchParams): P
       tx.payBaleCollection.findMany({ where: receiptWhere, include: { invoice: { select: { number: true, status: true } } }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], skip: (receiptsPage - 1) * 25, take: 25 }),
       tx.payBaleCollection.count({ where: receiptWhere }),
     ])
-    return { page, pages: Math.max(1, Math.ceil(total / 25)), total, receiptsPage, receiptsPages: Math.max(1, Math.ceil(receiptsTotal / 25)), receiptsTotal, items: rows.map(n => ({ id: n.id, source: n.sourceType, amountRial: n.amountMinor!.toString(), receivedAt: n.receivedAt.toISOString(), invoiceNumber: n.collectionMatch?.invoice.number || null, status: (n.transferReview?.status || 'OPEN') as 'OPEN' | 'DISMISSED' | 'CONFIRMED', reason: n.collectionMatch?.reviewReason || 'UNMATCHED' })),
+    return { page, pages: Math.max(1, Math.ceil(total / 25)), total, receiptsPage, receiptsPages: Math.max(1, Math.ceil(receiptsTotal / 25)), receiptsTotal, ...(sms && { smsSource: { id: sms.id, label: sms.label } }), items: rows.map(n => ({ id: n.id, source: n.sourceType, amountRial: n.amountMinor!.toString(), receivedAt: n.receivedAt.toISOString(), invoiceNumber: n.collectionMatch?.invoice.number || null, status: (n.transferReview?.status || 'OPEN') as 'OPEN' | 'DISMISSED' | 'CONFIRMED', reason: n.collectionMatch?.reviewReason || 'UNMATCHED' })),
       receipts: receipts.map(c => ({
         id: c.id, invoiceNumber: c.invoice.number, status: c.status, reason: c.reviewReason,
         receiptId: c.receiptId, createdAt: c.createdAt.toISOString(), totalRial: c.collectedRial.toString(),

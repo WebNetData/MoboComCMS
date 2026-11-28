@@ -13,6 +13,7 @@ import { normalizePaySettings, text } from '@/modules/billing/domain/pay-policy'
 import { PayError, type PayPaymentView } from '@/modules/billing/domain/pay'
 import { listCheckoutGateways } from '@/modules/billing/server/gateways'
 import { requirePayPayer, payReceipts, reviewPayReceipt, previewPayStatement, statementAccounts } from '@/modules/billing/server/pay'
+import { payFinancialPeriod, changePayFinancialPeriod } from '@/modules/billing/server/pay'
 import { payCenterGet, payCenterWrite } from './pay-center'
 import {
   applyPayMerchant,
@@ -212,6 +213,14 @@ export async function payAdminHttp(req: NextRequest, context: { params: Promise<
     if (req.method === 'GET' && resource === 'overview') return apiOk(await adminPayOverview(actor))
     if (req.method === 'GET' && resource === 'payments') return apiOk(await adminPayPayments(actor, req.nextUrl.searchParams))
     if (req.method === 'GET' && resource === 'reports') return await financialReportResponse(req, actor, 'admin')
+    if (resource === 'financial-periods') {
+      if (req.method === 'GET') return apiOk(await payFinancialPeriod(actor, req.nextUrl.searchParams))
+      if (req.method === 'POST') {
+        const origin = req.headers.get('origin')
+        if (!origin || !originIsThisSite(origin, req.nextUrl.host)) throw new PayError('مبدأ درخواست معتبر نیست', 403)
+        return apiOk(await changePayFinancialPeriod(actor, await readJsonObject(req, 4096)))
+      }
+    }
     if (req.method === 'GET' && resource === 'gateway-access') return apiOk(await adminGatewayAccess(actor, req.nextUrl.searchParams.get('id')))
     if (req.method === 'GET' && resource === 'terminal-keys') return apiOk(await adminTerminalKeys(actor, req.nextUrl.searchParams.get('id')))
     if (req.method === 'GET' && resource === 'merchant-directory') return apiOk(req.nextUrl.searchParams.get('id') ? await merchantAdminDetail(actor, req.nextUrl.searchParams.get('id')!) : await merchantDirectory(actor, req.nextUrl.searchParams))
@@ -272,7 +281,7 @@ export async function payAdminHttp(req: NextRequest, context: { params: Promise<
           throw new PayError('ابتدا یک درگاه فعال سازگار با پرداخت ریالی تنظیم کنید', 409)
         if (
           next.bankAccountIds.length &&
-          (await tx.bankAccount.count({ where: { id: { in: next.bankAccountIds }, active: true, collectionUse: 'GENERAL' } })) !==
+          (await tx.bankAccount.count({ where: { id: { in: next.bankAccountIds }, active: true } })) !==
             next.bankAccountIds.length
         )
           throw new PayError('حساب بانکی فعال نیست', 409)

@@ -21,6 +21,22 @@ test('full match and explicit direction fail closed on unknown withdrawals', () 
   assert.equal(parseSmsAmount(config, 'prefix CREDIT 10').ok, false)
   assert.equal(parseSmsAmount({ ...config, debitTemplate: '' }, 'DEBIT 10').ok, false)
 })
+test('Bank Melli preset accepts the multiline transfer format and preserves the older spelling', () => {
+  const preset = smsBankPresets.find(item => item.bankCode === 'bankmeli')
+  const message = 'بانك ملي ايران\nانتقالي:9,966,381,380+\nحساب:59001\nمانده:10,100,512,660\n0828-18:40'
+  const expected = {
+    ok: true, notice: { amountRial: '9966381380', accountNumber: '59001', date: '0828', time: '18:40', kind: 'SMS_TRANSFER', direction: 'CREDIT' },
+  }
+  const legacy = { ...preset, creditTemplate: preset.creditTemplate.replace('انتقالی:', 'انتقال:') }
+  for (const config of [preset, legacy]) {
+    assert.deepEqual(parseSmsTemplate(config, message), expected)
+    assert.deepEqual(parseSmsTemplate(config, message.replace('انتقالي:', 'انتقال:')), expected)
+    assert.deepEqual(parseSmsAmount(config, message.replace('381,380+', '381,380-')), { ok: false, code: 'NO_UNIQUE_MATCH' })
+    assert.deepEqual(parseSmsAmount(config, message.replace('381,380+', '381,380')), { ok: false, code: 'NO_UNIQUE_MATCH' })
+  }
+  const custom = { ...preset, creditTemplate: preset.creditTemplate.replace('انتقالی:', 'واریز:') }
+  assert.deepEqual(parseSmsAmount(custom, message), { ok: false, code: 'NO_UNIQUE_MATCH' })
+})
 test('configuration restricts tokens, markers, and bounded ignored fields', () => {
   for (const patch of [{ bankCode: 'BAD' }, { sender: 'x\n' }, { creditTemplate: 'CREDIT {amount}{amount}' }, { creditTemplate: 'CREDIT {amount}{other}' }, { creditTemplate: '{amount}' }, { debitTemplate: config.creditTemplate }, { creditTemplate: 'CREDIT {amount}{ignore}{ignore}{ignore}{ignore}' }, { unit: 'USD' }]) assert.throws(() => normalizeSmsTemplate({ ...config, ...patch }))
 })

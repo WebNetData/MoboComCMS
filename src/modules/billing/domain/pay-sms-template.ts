@@ -31,10 +31,12 @@ export function normalizeSmsTemplate(input: unknown): SmsTemplateConfig {
 }
 
 const preset = (bankCode: string, creditTemplate: string): SmsTemplateConfig => ({ bankCode, sender: bankCode, creditTemplate, debitTemplate: '', unit: 'IRR', calendar: 'JALALI' })
+const melliCreditTemplate = 'بانک ملی ایران انتقالی:{amount}+ حساب:{account} مانده:{ignore} {date}-{time}'
+const melliLegacyCreditTemplate = 'بانک ملی ایران انتقال:{amount}+ حساب:{account} مانده:{ignore} {date}-{time}'
 export const smsBankPresets: SmsTemplateConfig[] = [
   preset('bankmellat', 'حساب{account} واریز{amount} مانده{ignore} {date}-{time}'),
   preset('bankmehriran', '{account} {amount}+ {date}-{time} مانده:{ignore}'),
-  preset('bankmeli', 'بانک ملی ایران انتقال:{amount}+ حساب:{account} مانده:{ignore} {date}-{time}'),
+  preset('bankmeli', melliCreditTemplate),
 ]
 
 function match(template: string, message: string): Partial<Record<Token, string>> | null {
@@ -53,7 +55,14 @@ export function parseSmsTemplate(config: SmsTemplateConfig, text: string): { ok:
   let checked: SmsTemplateConfig
   try { checked = normalizeSmsTemplate(config) } catch { return { ok: false, code: 'INVALID_CONFIG' } }
   if (typeof text !== 'string' || text.length > 4096 || /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]/.test(text)) return { ok: false, code: 'INVALID_MESSAGE' }
-  const message = normalized(text), credit = match(checked.creditTemplate, message), debit = checked.debitTemplate ? match(checked.debitTemplate, message) : null
+  const message = normalized(text)
+  const configuredPreset = checked.bankCode === 'bankmeli' &&
+    (checked.creditTemplate === melliCreditTemplate || checked.creditTemplate === melliLegacyCreditTemplate)
+  // Both spellings occur in this bank format. Keep existing saved presets
+  // working without broadening any administrator-defined template.
+  const alternate = checked.creditTemplate === melliCreditTemplate ? melliLegacyCreditTemplate : melliCreditTemplate
+  const credit = match(checked.creditTemplate, message) ?? (configuredPreset ? match(alternate, message) : null)
+  const debit = checked.debitTemplate ? match(checked.debitTemplate, message) : null
   if (!!credit === !!debit) return { ok: false, code: 'NO_UNIQUE_MATCH' }
   const value = (credit || debit)!, raw = value.amount!
   if (!/^(?:[1-9][0-9]*|[1-9][0-9]{0,2}(?:,[0-9]{3})+|[1-9][0-9]{0,2}(?:٬[0-9]{3})+)$/.test(raw)) return { ok: false, code: 'INVALID_AMOUNT' }

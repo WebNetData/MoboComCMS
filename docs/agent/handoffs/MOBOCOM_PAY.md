@@ -3052,6 +3052,29 @@ Review delivery: [PR496](https://github.com/WebNetData/MoboComCMS/pull/496)
 targets main and remains open for owner review. Implementation commit 9857fad8;
 9763a43a preserves unrelated historical ledger/map formatting. Subsequent delivery
 record changes are documentation only. No merge or destination update was performed.
+## Multi-card SMS confirmation — 2026-11-28
+
+Automatic transfer allows saving a gateway with no fixed account. Select the
+receiving accounts in Pay settings and register a verified SMS source for
+each destination. A gateway with a legacy fixed account keeps using that
+account until switched to the pool. Each quote fixes its destination and
+globally unique amount. Ready accounts take priority. The merchant flow can
+still accept a receipt for manual review.
+
+The SMS parser recognizes the Bank Melli credit marker «انتقالی:» and the
+earlier spelling. A general account requires the configured account number
+and an account capture in the credit template. In a multi-account pool, a
+source needs to identify its account. A wrong or ambiguous account is rejected.
+An automatic merchant credit still requires a receipt.
+
+The additive `20270418180000_pay_sms_account_pool` migration updates the
+source binding guard. Parser unit tests, the PostgreSQL collection and
+shared-checkout checks, and the Edge settings and template flow passed.
+The connected fixture covered two general accounts at Bank Melli, routing,
+wrong account, receipt requirement and replayed SMS. The existing
+`pay-routing-operations` fixture also failed at its delivery status assertion
+on untouched `main`. No live bank SMS was sent.
+
 ## Payment follow-up and period closing — 2026-11-28
 
 - The Admin reconciliation desk filters accepted quotes awaiting a receipt,

@@ -57,6 +57,8 @@ export async function reconcileReference(
   )
     return
   if (!row.payerVerifiedAt) return
+  const invoice = row.invoiceId ? await tx.invoice.findUniqueOrThrow({ where: { id: row.invoiceId } }) : null
+  if (invoice?.gatewayId && await tx.payBaleCollection.count({ where: { invoiceId: invoice.id, gatewayId: invoice.gatewayId } })) return
   if (row.invoiceId && !await tx.paymentReceipt.count({ where: { invoiceId: row.invoiceId, status: { in: ['PENDING', 'APPROVED'] } } })) return
   // Existing invoices keep their original verification path. An unstarted legacy
   // bank hint must respect the current terminal and merchant grant.
@@ -64,8 +66,7 @@ export async function reconcileReference(
     !(await payGatewayOptions(row, tx)).some(method => method.provider === 'CARD_TRANSFER' && method.manual)) return
   const bound = await tx.payBankEvent.updateMany({ where: { id: event.id, status: 'UNMATCHED', paymentId: null }, data: { status: 'MATCHED', paymentId: row.id } })
   if (bound.count !== 1) throw new PayError('تراکنش بانکی قبلاً استفاده شده است', 409)
-  if (row.invoiceId) {
-    const invoice = await tx.invoice.findUniqueOrThrow({ where: { id: row.invoiceId } })
+  if (invoice) {
     if (invoice.gatewayId && (await tx.gateway.findUnique({ where: { id: invoice.gatewayId } }))?.provider !== 'CARD_TRANSFER') throw new PayError('روش پرداخت با رویداد بانکی مطابقت ندارد', 409)
     const paid = await markInvoicePaid({ invoiceId: invoice.id, amount: row.totalMinor.toString(), provider: 'CARD_TRANSFER', providerTxnId: event.externalId, raw: { source: 'mobocom-pay-bank', bankEventId: event.id } }, tx)
     if (!paid.ok) throw new PayError(paid.message || 'تطبیق انجام نشد', 409)

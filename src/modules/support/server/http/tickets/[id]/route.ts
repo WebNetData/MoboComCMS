@@ -75,7 +75,7 @@ export async function POST(req: NextRequest, { params: paramsPromise }: { params
   if (!user) return err('unauthorized', 401)
   const id = Number(params.id)
   if (!Number.isSafeInteger(id) || id <= 0) return err('invalid ticket id', 400)
-  const ticket = await db.ticket.findUnique({ where: { id }, select: { ...ticketWorkflowSelect, userId: true, expertRequestKey: true } })
+  const ticket = await db.ticket.findUnique({ where: { id }, select: { ...ticketWorkflowSelect, userId: true } })
   if (!ticket) return err('not found', 404)
   let body: any, files: Awaited<ReturnType<typeof parseTicketSubmission>>['files']
   try { ({ body, files } = await parseTicketSubmission(req)) }

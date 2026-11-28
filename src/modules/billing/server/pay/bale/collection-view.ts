@@ -43,7 +43,7 @@ export function collectionReceiptAvailability(row: Awaited<ReturnType<typeof col
 
 function checkoutContext(tx: Prisma.TransactionClient, row: Awaited<ReturnType<typeof collectionFor>>) {
   const pay = row.invoice.payCollection
-  return baleCollectionContext(tx, row.gatewayId, undefined, pay ? { merchantUserId: pay.merchant.userId, bankAccountId: row.bankAccountId } : undefined)
+  return baleCollectionContext(tx, row.gatewayId, undefined, pay ? { merchantUserId: pay.merchant.userId, bankAccountId: row.bankAccountId } : undefined, { fixedBankAccountId: row.bankAccountId })
 }
 
 export function baleCheckout(id: string, req: NextRequest): Promise<BaleCheckout> {
@@ -79,13 +79,13 @@ export function baleCheckout(id: string, req: NextRequest): Promise<BaleCheckout
 export async function changeBaleCheckout(id: string, req: NextRequest, action: unknown) {
   const chosen = await payTransaction(async tx => {
     const row = await collectionFor(tx, id, req), now = new Date()
-    const context = await checkoutContext(tx, row)
     if (action === 'renew') {
       if (row.status !== 'EXPIRED' && !(row.status === 'PENDING' && row.expiresAt <= now) && !(row.status === 'REVIEW' && row.reviewReason === 'RECEIPT_REJECTED')) throw new PayError('فقط درخواست منقضی یا رسید ردشده قابل نوسازی است', 409)
       return (await createBaleCollectionInTransaction(tx, row.invoice.number, row.gatewayId)).id
     }
     if (action !== 'accept') throw new PayError('عملیات پرداخت معتبر نیست', 422)
     if (row.status !== 'PENDING' || row.expiresAt <= now || row.invoice.status !== 'UNPAID' || row.activeInvoiceId !== row.invoiceId) throw new PayError('مهلت یا وضعیت درخواست تغییر کرده است', 409)
+    const context = await checkoutContext(tx, row)
     if (row.bankAccountId !== context.bank.id || !row.invoice.payCollection && !context.sms.some(source => matchesFrozenSms(row, source))) throw new PayError('مقصد یا منبع این درخواست تغییر کرده است', 409)
     if (row.acceptedAt) return row.id
     if (baleEffectiveStart({ ...row, acceptedAt: now }).getTime() + 60000 > row.expiresAt.getTime()) throw new PayError('مهلت کافی برای شروع پرداخت نمانده است؛ درخواست را پس از انقضا تازه کنید', 409)

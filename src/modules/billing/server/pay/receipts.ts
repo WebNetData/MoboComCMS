@@ -43,6 +43,9 @@ export async function submitPayReceipt(req: NextRequest, id: string) {
       await requirePayPayer(req, id, tx)
       const row = await publicPayment(tx, id), invoice = row.invoice
       if (!invoice || invoice.kind !== 'PAY_COLLECTION' || invoice.status !== 'UNPAID' || row.gatewayAttemptStatus !== 'READY' || !['CARD_TRANSFER', 'MANUAL'].includes(invoice.gateway?.provider || '')) throw new PayError('روش پرداخت برای ارسال رسید آماده نیست', 409)
+      if (invoice.gatewayId && await tx.payBaleCollection.count({ where: { invoiceId: invoice.id, gatewayId: invoice.gatewayId } })) {
+        throw new PayError('رسید این فاکتور را از صفحهٔ کارت‌به‌کارت با مبلغ یکتا ارسال کنید', 409)
+      }
       if (row.status !== 'PENDING' || row.expiresAt <= new Date()) throw new PayError('مهلت یا وضعیت پرداخت تغییر کرده است', 409)
       if (await tx.paymentReceipt.count({ where: { invoiceId: invoice.id, status: 'PENDING' } })) throw new PayError('رسید قبلی در انتظار بررسی است', 409)
       if (input.bankAccountId && input.bankAccountId !== row.bankAccountId) throw new PayError('حساب مقصد با پرداخت مطابقت ندارد')

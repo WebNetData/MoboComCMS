@@ -7,6 +7,7 @@ import { encryptPanelCredential } from '@/modules/providers/server/panel-credent
 import { payAudit, payContext, payTransaction, type PayActor } from '../context'
 import { requirePerm } from '@/modules/identity/server/access'
 import { actorHasFullAccess } from '@/modules/identity/server/staff-guard'
+import { smsAccountDigits } from './account'
 
 function storedConfig(row: PaySmsSource) {
   try { return smsSourceConfig(JSON.parse(row.templateJson)) }
@@ -53,8 +54,10 @@ export async function saveSmsSource(actor: PayActor, input: Record<string, unkno
     if (current && current.ownerUserId !== actor.id && !fullAccess)
       throw new PayError('ویرایش این منبع با مالک منبع یا مدیر کل است', 403)
     const bank = await tx.bankAccount.findUnique({ where: { id: bankAccountId } })
-    if (!bank || bank.collectionUse !== 'MOBOCOM_PAY' || !bank.active && (!current || input.active))
-      throw new PayError('یک حساب بانکی فعال با کاربرد «اختصاصی درگاه موبوکام» لازم است', 409)
+    if (!bank || !bank.active && (!current || input.active))
+      throw new PayError('یک حساب بانکی فعال لازم است', 409)
+    if (bank.collectionUse === 'GENERAL' && (!smsAccountDigits(bank.accountNumber) || !template.creditTemplate.includes('{account}')))
+      throw new PayError('برای کارت عمومی شمارهٔ حساب را ثبت کنید و در قالب واریز از {account} استفاده کنید', 422)
     const previous = current && storedConfig(current)
     if (current && !previous && !input.format) throw new PayError('قالب ذخیره‌شده معتبر نیست؛ نوع قالب را دوباره انتخاب کنید', 422)
     const format: SmsSourceFormat = input.format as SmsSourceFormat || previous?.format || 'EXTENDED_V1'

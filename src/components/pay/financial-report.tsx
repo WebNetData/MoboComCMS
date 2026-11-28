@@ -10,6 +10,7 @@ import { Badge, ErrorNotice, Field } from "./shared";
 import s from "./Pay.module.css";
 import layout from "./WorkspaceContent.module.css";
 import styles from "./FinancialReport.module.css";
+import FinancialPeriod from "./admin/financial-period";
 
 const localDate = new Intl.DateTimeFormat("fa-IR", { timeZone: "UTC", day: "numeric", month: "short", year: "numeric" });
 const showDay = (day: string) => localDate.format(new Date(day + "T12:00:00Z"));
@@ -133,6 +134,10 @@ export default function FinancialReport({ area, terminals = [] }: { area: "admin
       {!current && <p className={styles.empty} role="status">در حال دریافت گزارش…</p>}
       {current && "error" in current && <ErrorNotice error={current.error} />}
       {report && <>
+        {area === "admin" && <FinancialPeriod key={report.from + report.to} from={report.from} to={report.to} onSelect={(from, to) => {
+          setDraft({ from, to });
+          setRequest(previous => ({ key: previous.key + 1, from, to, terminalId: "" }));
+        }} />}
         <Breakdown key={report.from + report.to + report.terminalId} report={report}>
           {report.terminalId ? <p className={s.notice}>تسویه به کیف پول پذیرنده تعلق دارد. برای دیدن جمع‌بندی تسویه، «همهٔ پایانه‌ها» را انتخاب کنید.</p> : <Closing report={report} />}
         </Breakdown>
