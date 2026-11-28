@@ -15,7 +15,7 @@
   --cloud-gutter: clamp(22px, 2.6vw, 46px);
   --cloud-header: 64px;
   display: grid;
-  grid-template-columns: 248px minmax(0, 1fr);
+  grid-template-columns: 272px minmax(0, 1fr);
   grid-template-rows: auto 1fr auto;
   grid-template-areas: "sidebar header" "sidebar content" "sidebar footer";
   min-height: 100dvh;
@@ -216,23 +216,33 @@
 }
 
 .account {
-  flex: none;
-  justify-content: space-between;
-  gap: 8px;
-  margin: 9px 12px 12px;
-  padding: 5px;
-  border: 1px solid var(--cloud-line);
-  border-radius: 14px;
-  background: var(--cloud-surface);
-  box-shadow: var(--cloud-shadow);
+  display:grid;
+  grid-template-columns:minmax(0, 1fr) auto;
+  align-items:start;
+  flex:none;
+  gap:6px;
+  margin:8px 14px 14px;
+  padding:6px;
+  border:1px solid var(--cloud-line);
+  border-radius:15px;
+  background:color-mix(in srgb,var(--cloud-menu-tint) 35%,var(--cloud-surface));
 }
 
-.accountIdentity { flex: 1; gap: 8px; padding: 4px; color: inherit; text-decoration: none; border-radius: 9px; min-block-size: 48px; }
-.logout { border-color: transparent; }
-.accountIdentity > span:last-child { display: grid; min-inline-size: 0; gap: 3px; }
-.accountIdentity :is(strong, small) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.accountIdentity strong { font-size: .8125rem; font-weight: 650; }
-.accountIdentity small { color: var(--cloud-muted); font-size: .75rem; text-align: start; }
+.accountIdentity {
+  display:grid;
+  grid-template-columns:38px minmax(0,1fr);
+  align-items:center;
+  gap:6px 9px;
+  min-block-size:44px;
+  padding:4px 6px 7px;
+  color:inherit;
+  text-decoration:none;
+  border-radius:10px;
+}
+.accountIdentity strong { font-size:.875rem; font-weight:700; overflow-wrap:anywhere; }
+.accountIdentity small { grid-column:1/-1; color:var(--cloud-muted); font-size:.75rem; line-height:1.5; text-align:end; overflow-wrap:anywhere; }
+.logout { border-color:transparent; background:transparent; }
+
 .avatar {
   display: grid;
   place-items: center;
@@ -241,7 +251,7 @@
   block-size: 38px;
   overflow: hidden;
   border: 1px solid var(--cloud-menu-line);
-  border-radius: 11px;
+  border-radius: 50%;
   background: var(--cloud-menu-tint);
   color: var(--cloud-menu-ink);
   font-size: .875rem;
@@ -250,7 +260,7 @@
 .avatar img { display: block; inline-size: 100%; block-size: 100%; object-fit: cover; }
 
 .content { grid-area: content; min-inline-size: 0; }
-.content > :is(section, div) { max-width: 1680px; margin-inline: auto; padding: var(--cloud-gutter); }
+.content > :is(section, div) { padding: var(--cloud-gutter); }
 .content :global(.dt-head h1) { font-size: clamp(1.375rem, 1.1vw + .8125rem, 1.75rem); font-weight: 650; }
 .content :global(.dt-head) {
   padding: clamp(15px, 2vw, 26px);

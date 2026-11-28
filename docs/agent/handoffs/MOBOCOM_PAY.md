@@ -3193,3 +3193,16 @@ and constraints and the financial records. Keep assignment configured only
 where the receiving bank and the existing SMS source are operational. Local
 evidence uses synthetic accounts and SMS. A real bank or production rollout
 was outside this slice.
+
+## Pay landing header refinement — 2026-11-28
+
+The public `/pay` landing moves the Pay brand into the introduction and
+puts the keyboard-accessible features link beside the hero actions. The
+standalone strip illustrated in the owner's screenshot is gone. The features
+anchor, merchant and application links keep their existing destinations.
+Edge checked keyboard navigation, CTA and overflow at 320, 390, 768, 1440
+and 1920 pixels across light and dark configurations, with scoped axe at
+390 and 1440. React Doctor and independent source review found no issues.
+The change is driven by Pay landing presentation. See the
+[Cloud workspace follow-up](CLOUD_WORKSPACE.md#workspace-identity-and-overview-refinement--2026-11-28)
+for the paired worktree record.

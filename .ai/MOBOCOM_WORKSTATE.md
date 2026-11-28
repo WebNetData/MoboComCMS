@@ -1,3 +1,11 @@
+# Cloud workspace and Pay landing refinement — 2026-11-28
+
+Continue in `.mobocom/pay-reliability-engineering` from `4d4d9703`.
+The Cloud shell preserves the full email and overview uses grouped real data.
+The Pay hero incorporates the brand and features link.
+[Cloud evidence](../docs/agent/handoffs/CLOUD_WORKSPACE.md#workspace-identity-and-overview-refinement--2026-11-28)
+and [Pay evidence](../docs/agent/handoffs/MOBOCOM_PAY.md#pay-landing-header-refinement--2026-11-28).
+
 # Terminal receiving accounts and merchant workspace — 2026-11-28
 
 Continue `.mobocom/pay-reliability-engineering` on

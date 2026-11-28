@@ -11,17 +11,9 @@
 }
 
 .frame { max-inline-size: 1600px; margin-inline: auto; }
-.localHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-block-size: 70px;
-  gap: 12px;
-  border-block-end: 1px solid var(--pay-line);
-}
-.brand { display: inline-flex; align-items: center; gap: 8px; direction: ltr; font-weight: 750; }
-.brand svg { color: var(--sds-theme-accent-strong); }
-.localHeader a { display: inline-flex; align-items: center; min-block-size: 44px; color: var(--pay-ink); font-size: .875rem; }
+.intro .brand { display:inline-flex; align-items:center; gap:8px; margin:0 0 18px; color:var(--pay-ink); font-size:.875rem; font-weight:750; }
+.brand span { display:grid; place-items:center; inline-size:32px; block-size:32px; border:1px solid var(--pay-line); border-radius:10px; color:var(--sds-theme-accent-strong); background:var(--pay-tint); }
+.servicesJump { display:inline-flex; align-items:center; gap:6px; min-block-size:44px; margin-block-start:8px; color:var(--pay-muted); font-size:.875rem; font-weight:650; }
 
 .hero {
   display: grid;
@@ -141,7 +133,7 @@
 @media (hover: hover) {
   .dashboardLink:hover { background: color-mix(in srgb, var(--pay-accent) 88%, black); }
   .applyLink:hover { background: var(--pay-tint); border-color: var(--sds-theme-accent-strong); }
-  .localHeader a:hover, .faq summary:hover { text-decoration: underline; text-underline-offset: .25em; }
+  .servicesJump:hover, .faq summary:hover { text-decoration: underline; text-underline-offset: .25em; }
 }
 
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {

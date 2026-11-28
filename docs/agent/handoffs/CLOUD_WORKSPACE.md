@@ -256,3 +256,25 @@ current term. The existing renewal lifecycle remains the source of truth.
 The `cloud-workspace` and `hosting-renewal` PostgreSQL checks cover matching
 and ownership. Edge covered dashboard, detail, invoice navigation and the
 Admin filter at 1440 px light and 390 px dark with scoped axe.
+
+## Workspace identity and overview refinement — 2026-11-28
+
+Continued in `.mobocom/pay-reliability-engineering` from `4d4d9703`.
+The desktop sidebar and mobile drawer prioritize the account's full email
+and place it on a wrapping row below the canonical portrait and name.
+The layout follows the main account panel and keeps the local account link,
+sign-out and native Escape focus return. The overview groups actual resource
+counts, renewal and attention, services and allocated capacity, invoices and
+activity. Progress displays active resources as a fraction of existing
+inventory. The view uses the existing Hosting, Billing and Identity owners
+and existing workspace routes.
+
+Executed evidence: real local Edge on isolated PostgreSQL checked six width
+and theme combinations including a populated dashboard, visible image and
+full long email, an owned server, an isolated empty account, recovery after a controlled 503, responsive layout, keyboard focus return
+and scoped axe. The `cloud-workspace`, `ticket-workspaces` and
+`dashboard-service-ordering` connected checks passed. TypeScript,
+architecture, source, React Doctor and independent source review passed.
+The visual files are in `var/cloud-design-refinement`. Revert the
+presentation commit to roll back. No schema, rollout or provider work
+is part of this follow-up.

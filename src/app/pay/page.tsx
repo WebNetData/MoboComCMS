@@ -64,15 +64,16 @@ export default async function Page() {
   return <PayPublicChrome>
     <main className={s.landing} dir="rtl">
       <div className={s.frame}>
-        <div className={s.localHeader}><bdi className={s.brand}><Icon name="card" size={19} /> MoboCom Pay</bdi><a href="#services">امکانات</a></div>
         <section className={s.hero} aria-labelledby="pay-title">
           <div className={s.intro}>
+            <p className={s.brand}><span><Icon name="card" size={17} /></span>موبوکام‌پی</p>
             <h1 id="pay-title">{title}</h1>
             <p>{description}</p>
             <div className={s.actions}>
               <Link className={s.dashboardLink} href="/pay/merchant"><Icon name="grid" size={20} />داشبورد پذیرندگان<Icon name="arrow" size={18} /></Link>
               {applicationsEnabled && <Link className={s.applyLink} href="/pay/apply">درخواست پذیرندگی</Link>}
             </div>
+            <a className={s.servicesJump} href="#services">آشنایی با امکانات<Icon name="chevron" size={15} /></a>
           </div>
           <PaymentPreview />
         </section>

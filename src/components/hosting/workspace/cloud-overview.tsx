@@ -25,9 +25,8 @@ const date = (value: string) => {
 function OverviewBanner() {
   return <header className={s.hero}>
     <div className={s.heroCopy}>
-      <p className={s.heroLabel}><Icon name="cloud" size={17} /> ابر موبوکام</p>
       <h1>پیشخوان ابری شما</h1>
-      <p className={s.heroDescription}>سرویس‌ها و دامنه‌هایتان را مدیریت کنید و سررسیدها را در یک نگاه ببینید.</p>
+      <p className={s.heroDescription}>سرویس‌ها، دامنه‌ها و سررسیدهای تمدید را از همین‌جا پیگیری کنید.</p>
       <div className={s.heroActions}>
         <Link className={s.primary} href={base + '/new'}><Icon name="plus" size={18} /> ساخت سرویس</Link>
         <Link className={s.secondary} href={base + '/wallet'}><Icon name="wallet" size={17} /> کیف پول</Link>
@@ -36,9 +35,8 @@ function OverviewBanner() {
     <div className={s.heroArt} aria-hidden="true">
       <div className={s.gridPlane} />
       <div className={s.orbit} />
-      <div className={s.rack}><i /><i /><i /><i /></div>
-      <div className={s.satellite}><Icon name="globe" size={26} /></div>
-      <div className={s.nodeLight} />
+      <div className={s.rack}><i /><i /><i /></div>
+      <div className={s.satellite}><Icon name="cloud" size={28} /></div>
     </div>
   </header>
 }
@@ -198,22 +196,28 @@ export default function CloudOverview() {
       .map(row => ({ key: 'd' + row.id, href: base + '/domains/' + row.id, label: row.display, status: DOMAIN_STATUS[row.status as DomainStatus]?.label ?? row.status, at: row.status === 'ACTIVE' ? row.expiresAt : null })),
   ].sort((a, b) => (a.at ? Date.parse(a.at) : 0) - (b.at ? Date.parse(b.at) : 0))
 
-  return <div className={s.page} dir="rtl">
+  return <div className={s.page} dir="rtl" data-cloud-overview>
     <OverviewBanner />
     {failed ? <div className={s.error} role="alert">اطلاعات سرویس‌ها دریافت نشد.<button type="button" onClick={retry}>تلاش دوباره</button></div> :
       <section aria-label="خلاصهٔ منابع ابری" className={s.stats} aria-busy={loading}>
         {cards.map(card => <Link className={s.stat} href={base + '/' + card.path} key={card.path} data-resource={card.path}>
-          <span className={s.statHead}><span className={s.icon}><Icon name={card.icon} size={20} /></span><Icon name="arrow" size={17} /></span>
-          <span className={s.statValue}><span>{card.label}</span><strong>{loading ? '…' : fa(card.rows.length)}</strong></span>
-          {!loading && <span className={s.statFoot}><span className={s.dot} />{fa(card.active)} فعال</span>}
+          <span className={s.statHead}>
+            <span className={s.icon}><Icon name={card.icon} size={20} /></span>
+            <span>{card.label}</span>
+            <Icon className={s.statArrow} name="arrow" size={16} />
+          </span>
+          <span className={s.statValue}>
+            <strong>{loading ? '…' : fa(card.rows.length)}</strong>
+            {!loading && <span className={s.statFoot}>{fa(card.active)} فعال</span>}
+          </span>
+          {!loading && card.rows.length > 0 &&
+            <progress className={s.statMeter} value={card.active} max={card.rows.length} aria-hidden="true" />}
         </Link>)}
       </section>}
-    <Renewals {...history} />
-    {!failed && <div className={s.operations}>
-      <Inventory loading={loading} services={services ?? []} />
-      <Attention loading={loading} items={attention} />
-    </div>}
-    <div className={s.history}>
+    <div className={s.operations}>
+      <Renewals {...history} />
+      {!failed && <Attention loading={loading} items={attention} />}
+      {!failed && <Inventory loading={loading} services={services ?? []} />}
       {!failed && <Capacity loading={loading} hasServers={allocated.length > 0} capacity={capacity} />}
       <Invoices {...history} />
       <Activity overview={history.overview} failed={history.failed} />
