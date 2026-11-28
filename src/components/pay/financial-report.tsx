@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import JalaliDateInput from "@/components/date/JalaliDateInput";
 import Icon from "@/components/site/Icon";
 import type { PayFinancialReport, PayReportDay } from "@/modules/billing/domain/pay-report";
 import { api, money } from "./client";
@@ -85,10 +86,14 @@ export default function FinancialReport({ area }: { area: "admin" | "merchant" }
   return (
     <div className={layout.workspace}>
       <section className={`${layout.panel} ${styles.control}`} aria-labelledby="pay-report-period">
-        <div className={layout.sectionHead}><div><h2 id="pay-report-period">بازهٔ گزارش مالی</h2><p>تاریخ میلادی · حداکثر ۹۰ روز · بر مبنای ساعت تهران</p></div></div>
+        <div className={layout.sectionHead}><div><h2 id="pay-report-period">بازهٔ گزارش مالی</h2><p>تقویم شمسی · حداکثر ۹۰ روز · بر مبنای ساعت تهران</p></div></div>
         <form className={layout.filterForm} onSubmit={apply}>
-          <Field label="از تاریخ"><input type="date" name="from" value={draft.from ?? lastReport?.from ?? request.from} onChange={event => setDraft(previous => ({ ...previous, from: event.target.value }))} dir="ltr" required /></Field>
-          <Field label="تا تاریخ"><input type="date" name="to" value={draft.to ?? lastReport?.to ?? request.to} onChange={event => setDraft(previous => ({ ...previous, to: event.target.value }))} dir="ltr" required /></Field>
+          <Field label="از تاریخ">
+            <JalaliDateInput aria-label="از تاریخ" name="from" value={draft.from ?? lastReport?.from ?? request.from} onChange={from => setDraft(previous => ({ ...previous, from }))} required />
+          </Field>
+          <Field label="تا تاریخ">
+            <JalaliDateInput aria-label="تا تاریخ" name="to" value={draft.to ?? lastReport?.to ?? request.to} onChange={to => setDraft(previous => ({ ...previous, to }))} required />
+          </Field>
           <div className={s.actions}><button className={`${s.button} ${layout.primaryAction}`} type="submit">اعمال بازه</button></div>
         </form>
         {exportQuery && <div className={styles.exports}>
